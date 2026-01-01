@@ -41,3 +41,9 @@ Route::group(['prefix' => 'payments'], function () {
     });
 });
 
+// Chat routes
+Route::group(['prefix' => 'chat'], function () {
+    Route::post('/conversations', [\App\Http\Controllers\ChatController::class, 'createConversation']);
+    // Route::get('/conversations/{conversationId}', [\App\Http\Controllers\ChatController::class, 'getConversation']);
+    Route::post('/conversations/{conversationId}/message', [\App\Http\Controllers\ChatController::class, 'chat']);
+});

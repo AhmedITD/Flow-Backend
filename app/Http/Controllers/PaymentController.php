@@ -61,7 +61,6 @@ class PaymentController extends Controller
             "customerInfo"=> [
                 "firstName"=> $user->first_name ?? $user->name ?? 'Customer',
                 "email"=> $user->email,
-                "claimCode"=> (string) $payment->id
             ],
             "browserInfo"=> [
                 "browserAcceptHeader"=> $request->header('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'),

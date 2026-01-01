@@ -1,0 +1,136 @@
+// Flow Database Schema
+// Generated for dbdiagram.io
+
+Project Flow {
+  database_type: 'PostgreSQL'
+  Note: 'Flow - Call Center Management System'
+}
+
+// Users and Authentication
+Table users {
+  id bigint [pk, increment]
+  name varchar [not null]
+  email varchar [unique, not null]
+  email_verified_at timestamp [null]
+  password varchar [not null]
+  remember_token varchar [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  Note: 'User accounts for agents and system users'
+}
+
+Table password_reset_tokens {
+  email varchar [pk]
+  token varchar [not null]
+  created_at timestamp [null]
+  
+  Note: 'Password reset tokens for users'
+}
+
+Table sessions {
+  id varchar [pk]
+  user_id bigint [null, ref: > users.id]
+  ip_address varchar(45) [null]
+  user_agent text [null]
+  payload longtext [not null]
+  last_activity integer [not null]
+  
+  Note: 'User session data'
+}
+
+// Tickets Management
+Table tickets {
+  ticket_id uuid [pk]
+  tenant_id uuid [not null]
+  channel enum [default: 'voice', note: 'voice, chat, email']
+  status enum [default: 'open', note: 'open, pending, resolved, closed']
+  priority enum [default: 'medium', note: 'low, medium, high, urgent']
+  category enum [default: 'general', note: 'billing, technical, shipping, account, general, other']
+  subject varchar [not null]
+  summary text [not null]
+  created_by_type varchar [default: 'system', note: 'agent or system']
+  created_by_id varchar [null, note: 'agent_id or system']
+  assigned_to uuid [null, ref: > users.id]
+  call_session_id uuid [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    tenant_id
+    assigned_to
+    call_session_id
+    (tenant_id, status)
+    (tenant_id, priority)
+    (status, priority)
+    created_at
+  }
+  
+  Note: 'Support tickets for customer service'
+}
+
+// Payments
+Table payments {
+  id uuid [pk]
+  user_id bigint [not null, ref: > users.id]
+  transaction_id varchar [unique, null]
+  qicard_payment_id varchar [null]
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'IQD']
+  status enum [default: 'pending', note: 'pending, processing, completed, failed, cancelled']
+  description text [null]
+  payment_method varchar [null]
+  metadata json [null]
+  qicard_response json [null]
+  paid_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (user_id, status)
+    transaction_id
+    qicard_payment_id
+  }
+  
+  Note: 'Payment transactions'
+}
+
+// Chat/Conversation System
+Table conversations {
+  id uuid [pk]
+  tenant_id uuid [null]
+  title varchar [null]
+  status enum [default: 'active', note: 'active, archived']
+  metadata json [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    tenant_id
+    created_at
+  }
+  
+  Note: 'Chat conversations between users and AI assistant'
+}
+
+Table messages {
+  id uuid [pk]
+  conversation_id uuid [not null, ref: > conversations.id]
+  role enum [default: 'user', note: 'user, assistant, system, tool']
+  content text [not null]
+  tool_name varchar [null]
+  tool_arguments json [null]
+  tool_result json [null]
+  metadata json [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    conversation_id
+    (conversation_id, created_at)
+    role
+  }
+  
+  Note: 'Messages within conversations, including tool calls and responses'
+}
+
