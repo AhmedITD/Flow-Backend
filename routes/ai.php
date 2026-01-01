@@ -13,3 +13,15 @@ Mcp::web('/mcp/call-center', CallCenterServer::class);
 // Used by: Cursor IDE (via mcp:start command)
 // Access via: php artisan mcp:start call-center
 // Mcp::local('call-center', CallCenterServer::class);
+//   {
+//     "mcpServers": {
+//       "laravel-call-center": {
+//         "command": "php",
+//         "args": [
+//           "/home/ahmed/laravel/Flow/artisan",
+//           "mcp:start",
+//           "call-center"
+//         ]
+//       }
+//     }
+//   }
