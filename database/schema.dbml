@@ -3,29 +3,48 @@
 
 Project Flow {
   database_type: 'PostgreSQL'
-  Note: 'Flow - Call Center Management System'
+  Note: 'Flow - AI-powered Call Center Management System'
+}
+
+// Enums
+Enum service_type {
+  call_center [note: 'Call Center service with ticket management']
+  hr [note: 'HR service with employee support tools']
 }
 
 // Users and Authentication
 Table users {
   id bigint [pk, increment]
   name varchar [not null]
-  email varchar [unique, not null]
-  email_verified_at timestamp [null]
+  phone_number varchar(20) [unique, not null]
+  phone_verified_at timestamp [null]
   password varchar [not null]
   remember_token varchar [null]
   created_at timestamp
   updated_at timestamp
   
-  Note: 'User accounts for agents and system users'
+  Note: 'User accounts for agents and system users. Phone number authentication with OTP verification via OTPIQ'
 }
 
-Table password_reset_tokens {
-  email varchar [pk]
-  token varchar [not null]
-  created_at timestamp [null]
+Table phone_verification_codes {
+  id bigint [pk, increment]
+  phone_number varchar(20) [not null]
+  code varchar(6) [not null, note: '6-digit OTP code']
+  purpose varchar [default: 'verification', note: 'verification, login, register']
+  expires_at timestamp [not null]
+  verified_at timestamp [null]
+  is_used boolean [default: false]
+  ip_address varchar(45) [null]
+  created_at timestamp
+  updated_at timestamp
   
-  Note: 'Password reset tokens for users'
+  indexes {
+    phone_number
+    (phone_number, code, is_used)
+    (phone_number, expires_at)
+  }
+  
+  Note: 'OTP codes for phone number verification via OTPIQ SMS/WhatsApp service'
 }
 
 Table sessions {
@@ -69,10 +88,113 @@ Table tickets {
   Note: 'Support tickets for customer service'
 }
 
+// Subscription & Usage Tracking
+Table plans {
+  id uuid [pk]
+  name varchar [not null]
+  slug varchar [unique, not null]
+  description text [null]
+  price decimal(10,2) [not null]
+  currency varchar(3) [default: 'IQD']
+  billing_period enum [default: 'monthly', note: 'monthly, yearly, one_time']
+  trial_days integer [default: 0]
+  is_active boolean [default: true]
+  features json [null]
+  limits json [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  Note: 'Subscription plans with features and limits'
+}
+
+Table subscriptions {
+  id uuid [pk]
+  user_id bigint [not null, ref: > users.id]
+  plan_id uuid [not null, ref: > plans.id]
+  status enum [default: 'trial', note: 'active, cancelled, expired, trial, past_due']
+  starts_at timestamp [not null]
+  ends_at timestamp [null]
+  trial_ends_at timestamp [null]
+  cancelled_at timestamp [null]
+  cancel_reason varchar [null]
+  auto_renew boolean [default: true]
+  metadata json [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (user_id, status)
+    ends_at
+  }
+  
+  Note: 'User subscriptions to plans'
+}
+
+Table subscription_services {
+  id uuid [pk]
+  subscription_id uuid [not null, ref: > subscriptions.id]
+  service_type service_type [not null, note: 'Enum: call_center, hr']
+  allocated_tokens integer [default: 0, note: 'Token limit for this subscription service']
+  tokens_used integer [default: 0, note: 'Total tokens consumed']
+  reset_at timestamp [not null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (subscription_id, service_type) [unique]
+    reset_at
+    service_type
+  }
+  
+  Note: 'Service allocations per subscription with token limits and usage tracking'
+}
+
+Table usage_records {
+  id uuid [pk]
+  subscription_id uuid [not null, ref: > subscriptions.id]
+  service_type service_type [not null, note: 'Enum: call_center, hr']
+  tokens_used integer [not null, note: 'Tokens consumed in this request (prompt_tokens + completion_tokens from OpenAI)']
+  action_type varchar [null]
+  resource_id varchar [null]
+  metadata json [null]
+  recorded_at timestamp [not null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (subscription_id, service_type, recorded_at)
+    recorded_at
+    service_type
+  }
+  
+  Note: 'Append-only log of usage. tokens_used = tokens consumed per request, calculated from OpenAI API responses'
+}
+
+Table billing_cycles {
+  id uuid [pk]
+  subscription_id uuid [not null, ref: > subscriptions.id]
+  payment_id uuid [null, ref: > payments.id]
+  period_start date [not null]
+  period_end date [not null]
+  status enum [default: 'pending', note: 'pending, paid, failed, refunded']
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'IQD']
+  paid_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (subscription_id, status)
+  }
+  
+  Note: 'Billing cycle tracking for recurring subscriptions'
+}
+
 // Payments
 Table payments {
   id uuid [pk]
   user_id bigint [not null, ref: > users.id]
+  subscription_id uuid [null, ref: > subscriptions.id]
   transaction_id varchar [unique, null]
   qicard_payment_id varchar [null]
   amount decimal(10,2) [not null]
@@ -88,49 +210,62 @@ Table payments {
   
   indexes {
     (user_id, status)
+    subscription_id
     transaction_id
     qicard_payment_id
   }
   
-  Note: 'Payment transactions'
+  Note: 'Payment transactions linked to subscriptions'
 }
 
 // Chat/Conversation System
-Table conversations {
+// Note: Conversations and messages are not persisted. The chat service is stateless.
+
+// API Key Management
+Table api_keys {
   id uuid [pk]
-  tenant_id uuid [null]
-  title varchar [null]
-  status enum [default: 'active', note: 'active, archived']
+  user_id bigint [not null, ref: > users.id]
+  subscription_id uuid [null, ref: > subscriptions.id]
+  name varchar [not null]
+  key_hash varchar [unique, not null]
+  key_prefix varchar(20) [not null]
+  scopes text [null]
+  status enum [default: 'active', note: 'active, revoked, expired']
+  last_used_at timestamp [null]
+  expires_at timestamp [null]
+  revoked_at timestamp [null]
+  revoke_reason varchar [null]
   metadata json [null]
   created_at timestamp
   updated_at timestamp
   
   indexes {
-    tenant_id
-    created_at
+    (user_id, status)
+    key_prefix
+    last_used_at
   }
   
-  Note: 'Chat conversations between users and AI assistant'
+  Note: 'API keys for programmatic access'
 }
 
-Table messages {
+Table api_key_usage {
   id uuid [pk]
-  conversation_id uuid [not null, ref: > conversations.id]
-  role enum [default: 'user', note: 'user, assistant, system, tool']
-  content text [not null]
-  tool_name varchar [null]
-  tool_arguments json [null]
-  tool_result json [null]
+  api_key_id uuid [not null, ref: > api_keys.id]
+  endpoint varchar [not null]
+  method varchar(10) [not null]
+  status_code integer [not null]
+  response_time_ms integer [null]
+  ip_address varchar(45) [null]
+  user_agent text [null]
   metadata json [null]
+  used_at timestamp [not null]
   created_at timestamp
   updated_at timestamp
   
   indexes {
-    conversation_id
-    (conversation_id, created_at)
-    role
+    (api_key_id, used_at)
+    used_at
   }
   
-  Note: 'Messages within conversations, including tool calls and responses'
+  Note: 'API key usage tracking for analytics'
 }
-
