@@ -23,22 +23,25 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        // Generate a random phone number in international format (e.g., 9647716418740)
+        $phoneNumber = '964' . fake()->numerify('#########'); // Iraq country code + 9 digits
+        
         return [
             'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
+            'phone_number' => $phoneNumber,
+            'phone_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
     }
 
     /**
-     * Indicate that the model's email address should be unverified.
+     * Indicate that the model's phone number should be unverified.
      */
     public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'phone_verified_at' => null,
         ]);
     }
 }

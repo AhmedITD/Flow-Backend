@@ -55,6 +55,54 @@
             background-clip: text;
         }
 
+        .api-key-banner {
+            background: rgba(15, 52, 96, 0.8);
+            padding: 12px 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-bottom: 1px solid rgba(233, 69, 96, 0.1);
+        }
+
+        .api-key-banner label {
+            color: #7ec8e3;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .api-key-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid rgba(126, 200, 227, 0.3);
+            border-radius: 6px;
+            background: rgba(22, 33, 62, 0.8);
+            color: #7ec8e3;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .api-key-input:focus {
+            border-color: #7ec8e3;
+        }
+
+        .api-key-status {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .api-key-status.connected {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+        }
+
+        .api-key-status.disconnected {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+        }
+
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -180,6 +228,11 @@
             color: #666;
         }
 
+        .chat-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .send-button {
             padding: 14px 28px;
             background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
@@ -231,11 +284,36 @@
             0%, 80%, 100% { transform: scale(0); }
             40% { transform: scale(1); }
         }
+
+        .stateless-notice {
+            background: rgba(241, 196, 15, 0.1);
+            color: #f1c40f;
+            padding: 8px 16px;
+            font-size: 11px;
+            text-align: center;
+            border-bottom: 1px solid rgba(241, 196, 15, 0.2);
+        }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header"><span>MCP Call Center</span></div>
+        
+        <div class="api-key-banner">
+            <label>API Key:</label>
+            <input 
+                type="text" 
+                class="api-key-input" 
+                id="apiKeyInput" 
+                placeholder="Enter your API key (e.g., flw_test_admin_key_12345678)"
+                value="flw_test_admin_key_12345678"
+            >
+            <span class="api-key-status disconnected" id="apiKeyStatus">Not verified</span>
+        </div>
+
+        <div class="stateless-notice">
+            ⚡ Stateless Chat — No conversation history is saved. Each message is independent.
+        </div>
         
         <div class="chat-messages" id="chatMessages">
             <div class="message system">
@@ -260,9 +338,20 @@
         const messagesContainer = document.getElementById('chatMessages');
         const input = document.getElementById('messageInput');
         const button = document.getElementById('sendButton');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const apiKeyStatus = document.getElementById('apiKeyStatus');
         
-        let conversationId = null;
         let currentEventType = null;
+
+        function updateApiKeyStatus(isValid) {
+            if (isValid) {
+                apiKeyStatus.textContent = 'Connected';
+                apiKeyStatus.className = 'api-key-status connected';
+            } else {
+                apiKeyStatus.textContent = 'Invalid';
+                apiKeyStatus.className = 'api-key-status disconnected';
+            }
+        }
 
         function addMessage(type, content, extraClass = '') {
             const div = document.createElement('div');
@@ -288,30 +377,14 @@
             if (indicator) indicator.remove();
         }
 
-        async function ensureConversation() {
-            if (conversationId) return true;
-            
-            try {
-                const response = await fetch('/api/chat/conversations', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: 'Chat Session' })
-                });
-                const data = await response.json();
-                conversationId = data.conversation_id;
-                return true;
-            } catch (error) {
-                console.error('Failed to create conversation:', error);
-                return false;
-            }
-        }
-
         async function sendMessage() {
             const message = input.value.trim();
+            const apiKey = apiKeyInput.value.trim();
+            
             if (!message) return;
-
-            if (!await ensureConversation()) {
-                addMessage('assistant', 'Error: Could not start conversation');
+            
+            if (!apiKey) {
+                addMessage('system', '⚠️ Please enter an API key to continue.');
                 return;
             }
 
@@ -326,18 +399,33 @@
             let fullResponse = '';
 
             try {
-                const response = await fetch(`/api/chat/conversations/${conversationId}/message`, {
+                const response = await fetch('/api/chat/message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'text/event-stream',
+                        'X-API-Key': apiKey,
                     },
                     body: JSON.stringify({ message: message })
                 });
 
+                if (response.status === 401) {
+                    removeTypingIndicator();
+                    updateApiKeyStatus(false);
+                    const errorData = await response.json();
+                    addMessage('system', `🔑 ${errorData.message || 'Invalid API key'}`);
+                    input.disabled = false;
+                    button.disabled = false;
+                    input.focus();
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
+
+                // API key is valid
+                updateApiKeyStatus(true);
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -459,6 +547,19 @@
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
+
+        // Save API key to localStorage
+        apiKeyInput.addEventListener('change', () => {
+            localStorage.setItem('flow_api_key', apiKeyInput.value);
+            apiKeyStatus.textContent = 'Not verified';
+            apiKeyStatus.className = 'api-key-status disconnected';
+        });
+
+        // Load API key from localStorage
+        const savedApiKey = localStorage.getItem('flow_api_key');
+        if (savedApiKey) {
+            apiKeyInput.value = savedApiKey;
+        }
 
         input.focus();
     </script>

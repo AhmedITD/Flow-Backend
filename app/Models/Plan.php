@@ -2,26 +2,38 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-class Conversation extends Model
+class Plan extends Model
 {
+    use HasFactory;
+
     public $incrementing = false;
     protected $keyType = 'string';
     protected $primaryKey = 'id';
 
     protected $fillable = [
         'id',
-        'tenant_id',
-        'title',
-        'status',
-        'metadata',
+        'name',
+        'slug',
+        'description',
+        'price',
+        'currency',
+        'billing_period',
+        'trial_days',
+        'is_active',
+        'features',
+        'limits',
     ];
 
     protected $casts = [
-        'metadata' => 'array',
+        'price' => 'decimal:2',
+        'trial_days' => 'integer',
+        'is_active' => 'boolean',
+        'features' => 'array',
+        'limits' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -38,10 +50,10 @@ class Conversation extends Model
     }
 
     /**
-     * Get the messages for the conversation.
+     * Get the subscriptions for this plan.
      */
-    public function messages(): HasMany
+    public function subscriptions()
     {
-        return $this->hasMany(Message::class);
+        return $this->hasMany(Subscription::class);
     }
 }

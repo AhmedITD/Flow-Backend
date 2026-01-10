@@ -2,31 +2,36 @@
 
 namespace App\Models;
 
+use App\Enums\ServiceType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-class Message extends Model
+class UsageRecord extends Model
 {
+    use HasFactory;
+
     public $incrementing = false;
     protected $keyType = 'string';
     protected $primaryKey = 'id';
 
     protected $fillable = [
         'id',
-        'conversation_id',
-        'role',
-        'content',
-        'tool_name',
-        'tool_arguments',
-        'tool_result',
+        'subscription_id',
+        'service_type',
+        'tokens_used',
+        'action_type',
+        'resource_id',
         'metadata',
+        'recorded_at',
     ];
 
     protected $casts = [
-        'tool_arguments' => 'array',
-        'tool_result' => 'array',
+        'service_type' => ServiceType::class,
+        'tokens_used' => 'integer',
         'metadata' => 'array',
+        'recorded_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -39,14 +44,17 @@ class Message extends Model
             if (empty($model->id)) {
                 $model->id = (string) Str::uuid();
             }
+            if (empty($model->recorded_at)) {
+                $model->recorded_at = now();
+            }
         });
     }
 
     /**
-     * Get the conversation that owns the message.
+     * Get the subscription that owns this usage record.
      */
-    public function conversation(): BelongsTo
+    public function subscription(): BelongsTo
     {
-        return $this->belongsTo(Conversation::class);
+        return $this->belongsTo(Subscription::class);
     }
 }

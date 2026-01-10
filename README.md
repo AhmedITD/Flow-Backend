@@ -1,442 +1,454 @@
-# Flow Payment API Documentation
+# Flow - AI-Powered Call Center Management System
 
-A Laravel-based REST API for user authentication and payment processing using QiCard Payment Gateway.
+Flow is a comprehensive SaaS platform that provides AI-powered call center and HR services with subscription-based billing, API key authentication, and real-time usage tracking.
 
-## Table of Contents
+## 🚀 Features
 
-- [Base URL](#base-url)
+- **AI Chat Service** - OpenAI-powered chat with tool calling capabilities
+- **MCP Integration** - Model Context Protocol for extensible tool system
+- **Subscription Management** - Free trials, recurring subscriptions, and usage-based billing
+- **API Key Authentication** - Secure API access without user login
+- **Usage Tracking** - Real-time token usage monitoring and limits
+- **Multi-Service Support** - Call Center and HR services
+- **Payment Processing** - QiCard integration for payments
+- **Stateless Chat** - No conversation history, each request is independent
+- **JWT Authentication** - Admin dashboard access
+- **Comprehensive Analytics** - API usage and token consumption tracking
+
+## 📋 Table of Contents
+
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Database Setup](#database-setup)
+- [API Documentation](#api-documentation)
 - [Authentication](#authentication)
-- [API Endpoints](#api-endpoints)
-  - [Authentication Endpoints](#authentication-endpoints)
-  - [Payment Endpoints](#payment-endpoints)
-  - [Chat Endpoints](#chat-endpoints)
-- [MCP Integration](#mcp-integration)
-  - [What is MCP?](#what-is-mcp)
-  - [How It Works](#how-it-works)
-  - [Available Tools](#available-tools)
-  - [Tool Calling Flow](#tool-calling-flow)
-- [Request/Response Examples](#requestresponse-examples)
-- [Error Handling](#error-handling)
+- [User Flow](#user-flow)
+- [Database Schema](#database-schema)
+- [Usage Examples](#usage-examples)
+- [Testing](#testing)
 
-## Base URL
+## 🛠️ Installation
 
-```
-http://your-domain.com/api
-```
+### Prerequisites
 
-## Authentication
+- PHP 8.1 or higher
+- Composer
+- Node.js & NPM (for frontend assets)
+- SQLite/MySQL/PostgreSQL
+- OpenAI API key
 
-This API uses **JWT (JSON Web Tokens)** for authentication. Most endpoints require authentication via Bearer token in the Authorization header.
+### Step 1: Clone Repository
 
-### Getting a Token
-
-1. Register a new user account
-2. Login with your credentials
-3. Use the returned `access_token` in subsequent requests
-
-### Using the Token
-
-Include the token in the Authorization header:
-
-```
-Authorization: Bearer {your_access_token}
+```bash
+git clone <repository-url>
+cd Flow
 ```
 
-## API Endpoints
+### Step 2: Install Dependencies
+
+```bash
+composer install
+npm install
+```
+
+### Step 3: Environment Configuration
+
+Copy the environment file and configure:
+
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+Edit `.env` and set:
+
+```env
+APP_NAME=Flow
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+DB_CONNECTION=sqlite
+# Or for MySQL/PostgreSQL:
+# DB_CONNECTION=mysql
+# DB_HOST=127.0.0.1
+# DB_PORT=3306
+# DB_DATABASE=flow
+# DB_USERNAME=root
+# DB_PASSWORD=
+
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_ORGANIZATION=your_org_id_here
+
+QICARD_API_KEY=your_qicard_key
+QICARD_SECRET=your_qicard_secret
+
+OTPIQ_API_KEY=your_otpiq_api_key_here
+OTPIQ_BASE_URL=https://api.otpiq.com/api
+OTPIQ_DEFAULT_PROVIDER=whatsapp-sms
+OTPIQ_CODE_LENGTH=6
+OTPIQ_CODE_EXPIRES_IN=10
+OTPIQ_MAX_ATTEMPTS=5
+```
+
+### Step 4: Database Setup
+
+```bash
+# Create SQLite database (if using SQLite)
+touch database/database.sqlite
+
+# Run migrations
+php artisan migrate
+
+# Seed database with test data
+php artisan db:seed
+```
+
+### Step 5: Start Development Server
+
+```bash
+php artisan serve
+```
+
+Visit `http://localhost:8000` to see the application.
+
+## ⚙️ Configuration
+
+### MCP Server Configuration
+
+Edit `config/mcp.php` to configure MCP servers:
+
+```php
+return [
+    'default' => 'call-center',
+    
+    'servers' => [
+        'call-center' => [
+            'system_prompt' => 'You are a helpful call center assistant...',
+            'tools' => [
+                'create_ticket',
+                'view_ticket',
+                'search_tickets',
+                // ...
+            ],
+        ],
+        'hr' => [
+            'system_prompt' => 'You are an HR assistant...',
+            'tools' => [
+                // HR-specific tools
+            ],
+        ],
+    ],
+];
+```
+
+## 🗄️ Database Setup
+
+### Migrations
+
+Run migrations to create all tables:
+
+```bash
+php artisan migrate
+```
+
+### Seeders
+
+Populate database with test data:
+
+```bash
+php artisan db:seed
+```
+
+**Test Accounts**:
+- Phone: `+9647716418740` | Password: `password`
+- Phone: `+9647501234567` | Password: `password`
+
+**Test API Keys**:
+- Admin: `flw_test_admin_key_12345678`
+- Demo: `flw_test_demo_key_87654321`
+
+## 📚 API Documentation
+
+### Base URL
+
+```
+http://localhost:8000/api
+```
+
+### Authentication
+
+Flow uses two authentication methods:
+
+1. **JWT** - For admin dashboard routes
+2. **API Key** - For customer service routes
+
+---
+
+## 🔐 Authentication
+
+Flow uses **phone number authentication with OTP verification** via OTPIQ SMS/WhatsApp service.
+
+### JWT Authentication (Admin Routes)
+
+**Login**:
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "phone_number": "+9647716418740",
+  "password": "password"
+}
+```
+
+**Response**:
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": 1,
+    "name": "Admin User",
+    "phone_number": "9647716418740"
+  }
+}
+```
+
+**Using JWT**:
+```http
+GET /api/auth/me
+Authorization: Bearer {token}
+```
+
+### API Key Authentication (Customer Routes)
+
+**Using API Key**:
+```http
+POST /api/chat/message
+X-API-Key: flw_test_admin_key_12345678
+Content-Type: application/json
+
+{
+  "message": "Create a billing ticket"
+}
+```
+
+---
+
+## 📡 API Endpoints
 
 ### Authentication Endpoints
 
-#### 1. Register User
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | Public | Register new user (requires verification code from send-verification endpoint) |
+| POST | `/api/auth/login` | Public | Login with phone number and password |
+| POST | `/api/auth/send-verification` | Public | Send OTP verification code for registration (phone must NOT be registered) |
+| POST | `/api/auth/verify-code` | Public | Verify OTP code for registration |
+| POST | `/api/auth/forgot-password` | Public | Request password reset OTP code (phone MUST be registered) |
+| POST | `/api/auth/reset-password` | Public | Reset password with OTP code verification |
+| GET | `/api/auth/me` | JWT | Get current user |
+| POST | `/api/auth/logout` | JWT | Logout |
+| POST | `/api/auth/refresh` | JWT | Refresh token |
 
-Create a new user account.
+### API Key Management (JWT Required)
 
-**Endpoint:** `POST /api/auth/register`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/api-keys` | List all API keys |
+| POST | `/api/api-keys` | Generate new API key |
+| GET | `/api/api-keys/{id}` | Get API key details |
+| DELETE | `/api/api-keys/{id}` | Revoke API key |
+| GET | `/api/api-keys/{id}/embed` | Get embed code |
 
-**Authentication:** Not required
-
-**Request Parameters:**
-- `name` (required): User's full name (2-100 characters)
-- `email` (required): User's email address (must be unique)
-- `password` (required): User's password (minimum 6 characters)
-- `password_confirmation` (required): Must match the password field
-
-**Request Body:**
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "password": "password123",
-  "password_confirmation": "password123"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "message": "User successfully registered",
-  "user": {
-    "id": 1,
-    "name": "John Doe",
-    "email": "john@example.com",
-    "created_at": "2025-12-26T10:00:00.000000Z",
-    "updated_at": "2025-12-26T10:00:00.000000Z"
-  },
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
-
-**Validation Errors (422 Unprocessable Entity):**
-```json
-{
-  "name": ["The name field is required."],
-  "email": ["The email has already been taken."],
-  "password": ["The password must be at least 6 characters.", "The password confirmation does not match."]
-}
-```
-
----
-
-#### 2. Login
-
-Authenticate user and get access token.
-
-**Endpoint:** `POST /api/auth/login`
-
-**Authentication:** Not required
-
-**Request Body:**
-```json
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
-
-**Error Responses:**
-- `401 Unauthorized` - Invalid credentials
-- `422 Unprocessable Entity` - Validation errors
-- `500 Internal Server Error` - Token creation failed
-
----
-
-#### 3. Get Current User
-
-Get authenticated user information.
-
-**Endpoint:** `GET /api/auth/me`
-
-**Authentication:** Required
-
-**Headers:**
-```
-Authorization: Bearer {access_token}
-```
-
-**Response (200 OK):**
-```json
-{
-  "id": 1,
-  "name": "John Doe",
-  "email": "john@example.com",
-  "created_at": "2025-12-26T10:00:00.000000Z",
-  "updated_at": "2025-12-26T10:00:00.000000Z"
-}
-```
-
----
-
-#### 4. Logout
-
-Invalidate the current access token.
-
-**Endpoint:** `POST /api/auth/logout`
-
-**Authentication:** Required
-
-**Headers:**
-```
-Authorization: Bearer {access_token}
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "Successfully logged out"
-}
-```
-
----
-
-#### 5. Refresh Token
-
-Get a new access token using the current token.
-
-**Endpoint:** `POST /api/auth/refresh`
-
-**Authentication:** Required
-
-**Headers:**
-```
-Authorization: Bearer {access_token}
-```
-
-**Response (200 OK):**
-```json
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
-
----
-
-### Payment Endpoints
-
-#### 1. Initiate Payment
-
-Create a new payment transaction with QiCard Payment Gateway.
-
-**Endpoint:** `POST /api/payments/initiate`
-
-**Authentication:** Required
-
-**Headers:**
-```
-Authorization: Bearer {access_token}
+**Generate API Key**:
+```http
+POST /api/api-keys
+Authorization: Bearer {jwt_token}
 Content-Type: application/json
-```
 
-**Request Body:**
-```json
 {
-  "amount": 100.50,
-  "currency": "IQD",
-  "description": "Payment for order #123",
-  "return_url": "https://your-app.com/payment/success",
-  "callback_url": "https://your-app.com/api/payments/webhook"
+  "name": "Production Key",
+  "environment": "live",
+  "scopes": ["chat:read", "chat:write"],
+  "expires_at": "2026-12-31 23:59:59"
 }
 ```
 
-**Request Parameters:**
-- `amount` (required): Payment amount (numeric, minimum 0.01)
-- `currency` (optional): Currency code (3 characters, default: "IQD")
-- `description` (optional): Payment description (max 500 characters)
-- `return_url` (optional): URL to redirect user after payment completion
-- `callback_url` (optional): Webhook URL for payment status updates
-
-**Response (201 Created):**
+**Response**:
 ```json
 {
   "success": true,
-  "message": "Payment initiated successfully",
-  "payment": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "amount": 100.50,
-    "currency": "IQD",
-    "status": "processing",
-    "payment_url": "https://payment-gateway.com/pay/abc123"
+  "message": "API key generated successfully...",
+  "api_key": {
+    "id": "uuid",
+    "name": "Production Key",
+    "key": "flw_live_abc123xyz789",
+    "key_prefix": "flw_live_abc123",
+    "status": "active",
+    "expires_at": null
   }
 }
 ```
 
-**Error Response (400 Bad Request):**
-```json
+⚠️ **Important**: The plain API key is shown **only once** during creation. Save it securely!
+
+### Chat Endpoints (API Key Required)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/chat/message` | API Key | Send chat message (SSE stream) |
+
+**Chat Request**:
+```http
+POST /api/chat/message
+X-API-Key: flw_test_admin_key_12345678
+Content-Type: application/json
+Accept: text/event-stream
+
 {
-  "success": false,
-  "message": "Payment initiation failed",
-  "payment": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "amount": 100.50,
-    "currency": "IQD",
-    "status": "failed"
-  }
+  "message": "Create a billing ticket for customer #12345"
 }
 ```
 
-**Validation Errors (422 Unprocessable Entity):**
-```json
-{
-  "errors": {
-    "amount": ["The amount field is required."],
-    "currency": ["The currency must be 3 characters."]
-  }
-}
+**Response** (Server-Sent Events):
 ```
+event: tool_call
+data: {"tool":"create_ticket","arguments":{"subject":"Billing Issue",...}}
 
-**Note:** The `payment_url` in the response should be used to redirect the user to the payment gateway for completing the transaction.
+event: tool_result
+data: {"tool":"create_ticket","success":true,"content":"Ticket #456 created"}
 
----
-
-#### 2. Payment Webhook
-
-Receive payment status updates from QiCard Payment Gateway.
-
-**Endpoint:** `POST /api/payments/webhook`
-
-**Authentication:** Not required (uses webhook secret validation)
-
-**Note:** This endpoint is called by QiCard Payment Gateway to notify your application about payment status changes.
-
----
-
-#### 3. Payment Callback
-
-Handle user redirect after payment completion.
-
-**Endpoint:** `GET /api/payments/callback`
-
-**Authentication:** Not required
-
-**Query Parameters:**
-- `transaction_id`: Payment transaction ID
-- `status`: Payment status
-
----
-
-#### 4. Payment Return
-
-Alternative endpoint for payment return handling.
-
-**Endpoint:** `GET /api/payments/return`
-
-**Authentication:** Not required
-
----
-
-### Chat Endpoints
-
-#### 1. Create Conversation
-
-Create a new chat conversation.
-
-**Endpoint:** `POST /api/chat/conversations`
-
-**Authentication:** Not required
-
-**Request Body:**
-```json
-{
-  "tenant_id": "00000000-0000-0000-0000-000000000001",
-  "title": "Customer Support Chat"
-}
-```
-
-**Request Parameters:**
-- `tenant_id` (optional): Tenant ID (UUID) for multi-tenant support
-- `title` (optional): Conversation title (default: "New Conversation")
-
-**Response (200 OK):**
-```json
-{
-  "conversation_id": "86e6087f-b221-46b6-b519-772be551acc1",
-  "title": "Customer Support Chat",
-  "created_at": "2025-12-31T18:50:36.000000Z"
-}
-```
-
----
-
-#### 2. Send Message (Streaming)
-
-Send a message to the AI assistant and receive a streaming response. The AI can automatically use MCP tools to perform actions like creating tickets, searching tickets, etc.
-
-**Endpoint:** `POST /api/chat/conversations/{conversationId}/message`
-
-**Authentication:** Not required
-
-**Content-Type:** `text/event-stream` (Server-Sent Events)
-
-**Request Body:**
-```json
-{
-  "message": "Create a ticket for a billing issue"
-}
-```
-
-**Request Parameters:**
-- `message` (required): The user's message to the AI assistant
-
-**Response (200 OK - SSE Stream):**
-
-The response is streamed using Server-Sent Events (SSE). Events include:
-
-1. **Tool Call Events** (`tool_call`): When AI decides to use a tool
-```json
-{
-  "event": "tool_call",
-  "data": "{\"tool\":\"create_ticket\",\"arguments\":{\"subject\":\"Billing Issue\",\"summary\":\"Customer inquiry about billing\"}}"
-}
-```
-
-2. **Tool Result Events** (`tool_result`): Result of tool execution
-```json
-{
-  "event": "tool_result",
-  "data": "{\"tool\":\"create_ticket\",\"success\":true,\"content\":\"Ticket created successfully!\\n\\nTicket ID: 6393423d-f8be-4840-9411-bbf5bde36f6f\"}"
-}
-```
-
-3. **Update Events** (`update`): Streaming text response from AI
-```
 event: update
-data: Ticket
-```
+data: I've created a billing ticket for you.
 
-```
-event: update
-data:  created
-```
-
-```
-event: update
-data:  successfully!
-```
-
-4. **Error Events** (`error`): If an error occurs
-```json
-{
-  "event": "error",
-  "data": "Error message here"
-}
-```
-
-5. **Done Event** (`done`): When the response is complete
-```
 event: done
 data: complete
 ```
 
-**Example Client Code (JavaScript):**
+### Payment Endpoints (JWT Required)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/payments/initiate` | JWT | Initiate payment |
+| GET | `/api/payments/status/{id}` | JWT | Get payment status |
+| GET | `/api/payments/history` | JWT | Get payment history |
+
+---
+
+## 🔄 User Flow
+
+### Complete User Journey
+
+1. **Registration** → User creates account
+2. **Login** → Get JWT token for dashboard
+3. **Free Trial** → Admin assigns trial subscription
+4. **Generate API Key** → Create API key for service access
+5. **Use Chat Service** → Make API calls with API key
+6. **Usage Tracking** → Tokens tracked in real-time
+7. **Trial Expires** → Subscription expires
+8. **Upgrade to Paid** → Process payment
+9. **Active Subscription** → Continue using service
+
+### Detailed Flow Diagram
+
+```
+┌─────────────┐
+│   Register  │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│    Login    │ → Get JWT Token
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────┐
+│ Free Trial Start│ → Subscription created
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│ Generate API Key│ → API key created
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Use Chat API   │ → Tokens tracked
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Trial Expires  │ → Subscription expired
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Upgrade to Paid│ → Payment processed
+└──────┬──────────┘
+       │
+       ▼
+┌─────────────────┐
+│ Active Service  │ → Continue using
+└─────────────────┘
+```
+
+---
+
+## 🗃️ Database Schema
+
+### Core Tables
+
+- **`users`** - User accounts
+- **`plans`** - Subscription plans (pricing, limits, features)
+- **`subscriptions`** - User subscriptions to plans
+- **`subscription_services`** - Token allocation per service type
+- **`usage_records`** - Historical token usage log
+- **`api_keys`** - API keys for authentication
+- **`api_key_usage`** - API key request analytics
+- **`payments`** - Payment transactions
+- **`billing_cycles`** - Billing period tracking
+- **`tickets`** - Support tickets (for call center service)
+
+### Service Types (Enum)
+
+- `call_center` - Call Center service with ticket management
+- `hr` - HR service with employee support tools
+
+### Subscription Status
+
+- `trial` - Free trial period
+- `active` - Active paid subscription
+- `cancelled` - Cancelled subscription
+- `expired` - Expired subscription
+- `past_due` - Payment failed
+
+See `database/schema.dbml` for complete schema visualization.
+
+---
+
+## 💻 Usage Examples
+
+### JavaScript/TypeScript
+
+**Chat with API Key**:
 ```javascript
-async function sendMessage(conversationId, message) {
-  const response = await fetch(
-    `/api/chat/conversations/${conversationId}/message`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'text/event-stream',
-      },
-      body: JSON.stringify({ message }),
-    }
-  );
+async function sendChatMessage(message, apiKey) {
+  const response = await fetch('http://localhost:8000/api/chat/message', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+      'Accept': 'text/event-stream',
+    },
+    body: JSON.stringify({ message }),
+  });
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let currentEvent = '';
 
   while (true) {
     const { done, value } = await reader.read();
@@ -444,418 +456,307 @@ async function sendMessage(conversationId, message) {
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop(); // Keep incomplete line in buffer
+    buffer = lines.pop() || '';
 
     for (const line of lines) {
       if (line.startsWith('event: ')) {
-        currentEvent = line.substring(7).trim();
-      } else if (line.startsWith('data: ')) {
-        const data = line.substring(6).trim();
-        handleEvent(currentEvent, data);
+        const eventType = line.slice(7).trim();
+        // Handle event type
+      }
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        // Handle data
       }
     }
   }
 }
+```
 
-function handleEvent(event, data) {
-  switch (event) {
-    case 'tool_call':
-      const toolCall = JSON.parse(data);
-      console.log('AI is using tool:', toolCall.tool);
-      break;
-    case 'tool_result':
-      const toolResult = JSON.parse(data);
-      console.log('Tool result:', toolResult);
-      break;
-    case 'update':
-      // Append streaming text to UI
-      appendToChat(data);
-      break;
-    case 'error':
-      console.error('Error:', data);
-      break;
-    case 'done':
-      console.log('Response complete');
-      break;
-  }
+**Generate API Key (with JWT)**:
+```javascript
+async function generateApiKey(jwtToken) {
+  const response = await fetch('http://localhost:8000/api/api-keys', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${jwtToken}`,
+    },
+    body: JSON.stringify({
+      name: 'My API Key',
+      environment: 'live',
+    }),
+  });
+
+  const data = await response.json();
+  console.log('API Key:', data.api_key.key); // Save this!
+  return data;
 }
 ```
 
----
+### cURL Examples
 
-## MCP Integration
-
-### What is MCP?
-
-**MCP (Model Context Protocol)** is a protocol that allows AI assistants to interact with external tools and services. In this application, MCP tools enable the AI to:
-
-- Create and manage support tickets
-- Search for existing tickets
-- Update ticket information
-- Assign tickets to agents
-- Perform other call center operations
-
-The AI automatically decides when to use these tools based on the user's request, making the chat interface intelligent and action-oriented.
-
-### How It Works
-
-1. **User sends a message** → The message is saved to the conversation
-2. **System builds context** → Includes system prompt and conversation history
-3. **AI analyzes request** → OpenAI analyzes the message and available tools
-4. **Tool calling (if needed)** → AI calls relevant MCP tools automatically
-5. **Tool execution** → Tools perform actions (create ticket, search, etc.)
-6. **AI generates response** → AI uses tool results to generate a natural response
-7. **Streaming response** → Response is streamed back to the user word-by-word
-
-### Available Tools
-
-The Call Center MCP server provides the following tools:
-
-#### 1. `create_ticket`
-
-Creates a new support ticket for a customer inquiry.
-
-**Parameters:**
-- `subject` (required): Brief subject line describing the issue
-- `summary` (required): Detailed description of the customer inquiry
-- `tenant_id` (optional): Tenant ID (UUID), defaults to "00000000-0000-0000-0000-000000000001"
-- `channel` (optional): Communication channel - `voice`, `chat`, or `email` (default: `voice`)
-- `priority` (optional): Priority level - `low`, `medium`, `high`, or `urgent` (default: `medium`)
-- `category` (optional): Ticket category - `billing`, `technical`, `shipping`, `account`, `general`, or `other` (default: `general`)
-
-**Example Usage:**
-```
-User: "Create a ticket for a billing issue - customer was overcharged $50"
-AI: [Automatically calls create_ticket tool]
+**Login**:
+```bash
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"phone_number":"+9647716418740","password":"password"}'
 ```
 
-#### 2. `view_ticket`
+**Registration Flow**:
 
-Retrieves detailed information about a specific ticket.
-
-**Parameters:**
-- `ticket_id` (required): The unique ticket ID (UUID) to retrieve
-
-**Example Usage:**
-```
-User: "Show me details for ticket 6393423d-f8be-4840-9411-bbf5bde36f6f"
-AI: [Automatically calls view_ticket tool]
+Step 1: Request verification code (phone must NOT be registered):
+```bash
+curl -X POST http://localhost:8000/api/auth/send-verification \
+  -H "Content-Type: application/json" \
+  -d '{"phone_number":"+9647501234567"}'
 ```
 
-#### 3. `update_ticket`
-
-Updates ticket information (subject, summary, priority, category).
-
-**Parameters:**
-- `ticket_id` (required): The ticket ID (UUID) to update
-- `subject` (optional): New subject line
-- `summary` (optional): Updated summary
-- `priority` (optional): New priority level
-- `category` (optional): New category
-
-**Example Usage:**
-```
-User: "Update ticket 6393423d-f8be-4840-9411-bbf5bde36f6f to high priority"
-AI: [Automatically calls update_ticket tool]
+Step 2: Register with all info + verification code:
+```bash
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"John Doe","phone_number":"+9647501234567","password":"password","password_confirmation":"password","code":"123456"}'
 ```
 
-#### 4. `search_tickets`
+**Password Reset Flow**:
 
-Searches for tickets based on various criteria.
-
-**Parameters:**
-- `tenant_id` (optional): Filter by tenant ID
-- `status` (optional): Filter by status - `open`, `pending`, `resolved`, or `closed`
-- `priority` (optional): Filter by priority
-- `category` (optional): Filter by category
-- `limit` (optional): Maximum number of results (default: 10)
-
-**Example Usage:**
-```
-User: "Show me all open billing tickets"
-AI: [Automatically calls search_tickets tool with status=open and category=billing]
+Step 1: Request password reset OTP (phone must be registered):
+```bash
+curl -X POST http://localhost:8000/api/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"phone_number":"+9647716418740"}'
 ```
 
-#### 5. `assign_ticket`
-
-Assigns a ticket to a specific agent.
-
-**Parameters:**
-- `ticket_id` (required): The ticket ID (UUID) to assign
-- `agent_id` (required): The agent ID (UUID) to assign the ticket to
-
-**Example Usage:**
-```
-User: "Assign ticket 6393423d-f8be-4840-9411-bbf5bde36f6f to agent 00000000-0000-0000-0000-000000000002"
-AI: [Automatically calls assign_ticket tool]
+Step 2: Reset password with OTP code:
+```bash
+curl -X POST http://localhost:8000/api/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"phone_number":"+9647716418740","code":"123456","password":"newpassword","password_confirmation":"newpassword"}'
 ```
 
-#### 6. `update_ticket_status`
-
-Updates the status of a ticket.
-
-**Parameters:**
-- `ticket_id` (required): The ticket ID (UUID) to update
-- `status` (required): New status - `open`, `pending`, `resolved`, or `closed`
-
-**Example Usage:**
-```
-User: "Mark ticket 6393423d-f8be-4840-9411-bbf5bde36f6f as resolved"
-AI: [Automatically calls update_ticket_status tool]
+**Generate API Key**:
+```bash
+curl -X POST http://localhost:8000/api/api-keys \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Key","environment":"test"}'
 ```
 
-### Tool Calling Flow
+**Chat Request**:
+```bash
+curl -X POST http://localhost:8000/api/chat/message \
+  -H "X-API-Key: flw_test_admin_key_12345678" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"message":"Hello, create a ticket"}'
+```
 
-The AI uses a sophisticated tool-calling mechanism:
+### Python Example
 
-1. **User Request**: User sends a natural language message
-   ```
-   "Create a ticket for a billing issue"
-   ```
+```python
+import requests
 
-2. **AI Analysis**: OpenAI analyzes the message and determines it needs to use `create_ticket`
+# Chat with API Key
+def chat(api_key, message):
+    response = requests.post(
+        'http://localhost:8000/api/chat/message',
+        headers={
+            'X-API-Key': api_key,
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+        },
+        json={'message': message},
+        stream=True
+    )
+    
+    for line in response.iter_lines():
+        if line.startswith(b'event: '):
+            event_type = line[7:].decode()
+        elif line.startswith(b'data: '):
+            data = line[6:].decode()
+            print(f"{event_type}: {data}")
 
-3. **Tool Call Event**: Client receives `tool_call` event
-   ```json
-   {
-     "event": "tool_call",
-     "data": {
-       "tool": "create_ticket",
-       "arguments": {
-         "subject": "Billing Issue",
-         "summary": "Customer inquiry about billing",
-         "category": "billing"
-       }
-     }
-   }
-   ```
-
-4. **Tool Execution**: System executes the tool and creates the ticket
-
-5. **Tool Result Event**: Client receives `tool_result` event
-   ```json
-   {
-     "event": "tool_result",
-     "data": {
-       "tool": "create_ticket",
-       "success": true,
-       "content": "Ticket created successfully!\n\nTicket ID: 6393423d-f8be-4840-9411-bbf5bde36f6f"
-     }
-   }
-   ```
-
-6. **AI Response**: AI generates a natural language response using the tool result
-   ```
-   "I've created a ticket for the billing issue. The ticket ID is 6393423d-f8be-4840-9411-bbf5bde36f6f. 
-   It has been categorized as a billing issue and set to medium priority."
-   ```
-
-7. **Streaming**: Response is streamed word-by-word to the client
-
-**Multiple Tool Calls**: The AI can call multiple tools in sequence if needed. For example:
-- First: `search_tickets` to find existing tickets
-- Then: `create_ticket` if no matching ticket exists
-- Finally: `update_ticket_status` to mark it as resolved
+# Usage
+chat('flw_test_admin_key_12345678', 'Create a ticket')
+```
 
 ---
 
-## Request/Response Examples
+## 🧪 Testing
 
-### Complete Payment Flow Example
+### Run Tests
 
-#### Step 1: Register User
 ```bash
-curl -X POST http://your-domain.com/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "password": "password123",
-    "password_confirmation": "password123"
-  }'
+php artisan test
 ```
 
-#### Step 2: Login
-```bash
-curl -X POST http://your-domain.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "john@example.com",
-    "password": "password123"
-  }'
+### Test API Key
+
+Use the seeded test API key:
+```
+flw_test_admin_key_12345678
 ```
 
-#### Step 3: Initiate Payment
-```bash
-curl -X POST http://your-domain.com/api/payments/initiate \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {access_token}" \
-  -d '{
-    "amount": 100.50,
-    "currency": "IQD",
-    "description": "Payment for order #123",
-    "return_url": "https://your-app.com/payment/success",
-    "callback_url": "https://your-app.com/api/payments/webhook"
-  }'
+### Test User Credentials
+
+```
+Phone: +9647716418740
+Password: password
+
+Phone: +9647501234567
+Password: password
 ```
 
-#### Step 4: Redirect User to Payment URL
-Use the `payment_url` from the response to redirect the user to complete the payment.
+## 📱 OTPIQ SMS/WhatsApp Integration
 
----
+Flow uses OTPIQ service for phone number verification via SMS/WhatsApp.
 
-### Complete Chat Flow Example
+### Configuration
 
-#### Step 1: Create a Conversation
-```bash
-curl -X POST http://your-domain.com/api/chat/conversations \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_id": "00000000-0000-0000-0000-000000000001",
-    "title": "Customer Support"
-  }'
+Set the following environment variables:
+
+```env
+OTPIQ_API_KEY=your_otpiq_api_key_here
+OTPIQ_BASE_URL=https://api.otpiq.com/api
+OTPIQ_DEFAULT_PROVIDER=whatsapp-sms
+OTPIQ_CODE_LENGTH=6
+OTPIQ_CODE_EXPIRES_IN=10
+OTPIQ_MAX_ATTEMPTS=5
 ```
 
-**Response:**
-```json
+### Usage
+
+The OTPIQ service is automatically used during registration:
+
+1. **Registration Flow** (phone number must NOT be registered):
+   - Step 1: User calls `/api/auth/send-verification` with `phone_number` to receive OTP code
+   - System validates that phone number does NOT exist before sending code
+   - Step 2: User calls `/api/auth/register` with `name`, `phone_number`, `password`, `password_confirmation`, and the `code` received in Step 1
+   - If code is valid, account is created and JWT token is issued
+
+2. **Login**: User provides phone number + password → JWT token issued (no OTP required)
+
+3. **Password Reset Flow** (phone number MUST be registered):
+   - Step 1: User calls `/api/auth/forgot-password` with `phone_number` to receive OTP code
+   - System validates that phone number EXISTS before sending code
+   - Step 2: User calls `/api/auth/reset-password` with `phone_number`, `code`, `password`, and `password_confirmation`
+   - If code is valid, password is reset and user can login with new password
+
+### OTPIQ API
+
+The service sends verification codes via SMS/WhatsApp using the OTPIQ API:
+
+```php
+POST https://api.otpiq.com/api/sms
+Authorization: Bearer {OTPIQ_API_KEY}
+Content-Type: application/json
+
 {
-  "conversation_id": "86e6087f-b221-46b6-b519-772be551acc1",
-  "title": "Customer Support",
-  "created_at": "2025-12-31T18:50:36.000000Z"
+  "phoneNumber": "9647716418740",
+  "smsType": "verification",
+  "provider": "whatsapp-sms",
+  "verificationCode": "123456"
 }
 ```
 
-#### Step 2: Send a Message (with Tool Calling)
-```bash
-curl -X POST http://your-domain.com/api/chat/conversations/86e6087f-b221-46b6-b519-772be551acc1/message \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Create a ticket for a billing issue - customer was overcharged $50 on their last invoice"
-  }'
+### Rate Limiting
+
+- Maximum 5 OTP requests per phone number per hour
+- OTP codes expire after 10 minutes
+- Invalid codes can be attempted up to 5 times before requiring a new code
+
+---
+
+## 📊 Monitoring & Analytics
+
+### API Key Usage
+
+Query API key usage statistics:
+
+```sql
+SELECT 
+    endpoint,
+    COUNT(*) as calls,
+    AVG(response_time_ms) as avg_response_time,
+    SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as errors
+FROM api_key_usage
+WHERE api_key_id = ?
+GROUP BY endpoint;
 ```
 
-**SSE Stream Response:**
-```
-event: tool_call
-data: {"tool":"create_ticket","arguments":{"subject":"Billing Issue","summary":"Customer was overcharged $50 on their last invoice","category":"billing","priority":"high"}}
+### Token Usage
 
-event: tool_result
-data: {"tool":"create_ticket","success":true,"content":"Ticket created successfully!\n\nTicket ID: 6393423d-f8be-4840-9411-bbf5bde36f6f\nSubject: Billing Issue\nStatus: open\nPriority: high\nCategory: billing"}
+Query token consumption:
 
-event: update
-data: I've
-
-event: update
-data:  created
-
-event: update
-data:  a
-
-event: update
-data:  ticket
-
-event: update
-data:  for
-
-event: update
-data:  the
-
-event: update
-data:  billing
-
-event: update
-data:  issue.
-
-event: update
-data:  The
-
-event: update
-data:  ticket
-
-event: update
-data:  ID
-
-event: update
-data:  is
-
-event: update
-data:  6393423d-f8be-4840-9411-bbf5bde36f6f
-
-event: done
-data: complete
+```sql
+SELECT 
+    service_type,
+    SUM(tokens_used) as total_tokens,
+    COUNT(*) as requests,
+    AVG(tokens_used) as avg_tokens_per_request
+FROM usage_records
+WHERE subscription_id = ?
+  AND recorded_at >= DATE('now', 'start of month')
+GROUP BY service_type;
 ```
 
-#### Step 3: Search for Tickets
-```bash
-curl -X POST http://your-domain.com/api/chat/conversations/86e6087f-b221-46b6-b519-772be551acc1/message \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Show me all open billing tickets"
-  }'
-```
+---
 
-The AI will automatically use the `search_tickets` tool with appropriate filters.
+## 🔒 Security
 
-#### Step 4: Update Ticket Status
-```bash
-curl -X POST http://your-domain.com/api/chat/conversations/86e6087f-b221-46b6-b519-772be551acc1/message \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Mark ticket 6393423d-f8be-4840-9411-bbf5bde36f6f as resolved"
-  }'
-```
+### API Key Security
 
-The AI will automatically use the `update_ticket_status` tool.
+- API keys are **hashed** with SHA-256 before storage
+- Plain keys are shown **only once** during creation
+- Keys can be revoked at any time
+- Expired keys are automatically rejected
 
-## Error Handling
+### Best Practices
 
-### HTTP Status Codes
+1. **Never commit API keys** to version control
+2. **Use environment variables** for sensitive data
+3. **Rotate API keys** regularly
+4. **Monitor usage** for suspicious activity
+5. **Set expiration dates** for API keys
 
-- `200 OK` - Request successful
-- `201 Created` - Resource created successfully
-- `400 Bad Request` - Invalid request data
-- `401 Unauthorized` - Authentication required or invalid token
-- `422 Unprocessable Entity` - Validation errors
-- `500 Internal Server Error` - Server error
+---
 
-### Error Response Format
+## 🛣️ Roadmap
 
-```json
-{
-  "success": false,
-  "message": "Error description",
-  "error": "Detailed error message",
-  "error_code": 27
-}
-```
+- [ ] Webhook support for subscription events
+- [ ] GraphQL API
+- [ ] Rate limiting per API key
+- [ ] Usage alerts and notifications
+- [ ] Admin dashboard UI
+- [ ] Multi-tenant support
+- [ ] Advanced analytics dashboard
 
-### Common Error Codes
+---
 
-- **27**: Authentication required - Invalid credentials or missing authentication
-- **5**: Request ID already used - Duplicate payment request
-- **1**: Order already exists
+## 📝 License
 
-## Payment Status Values
+[Specify your license here]
 
-- `pending` - Payment created but not yet processed
-- `processing` - Payment is being processed
-- `completed` - Payment completed successfully
-- `failed` - Payment failed
-- `cancelled` - Payment was cancelled
+---
 
-## Notes
+## 🤝 Contributing
 
-- All timestamps are in ISO 8601 format (UTC)
-- Payment amounts should be numeric with up to 2 decimal places
-- Default currency is IQD (Iraqi Dinar)
-- JWT tokens expire after 1 hour (3600 seconds)
-- Use the refresh token endpoint to get a new token before expiration
-- Chat conversations are stored with full message history
-- MCP tools are automatically selected by the AI based on user requests
-- Tool calls are transparent - users see what tools are being used via SSE events
-- The AI can chain multiple tool calls to complete complex requests
-- Conversation history is limited to the last 10 messages for context efficiency
+[Contributing guidelines]
 
-## Support
+---
 
-For issues or questions, please contact the development team.
+## 📞 Support
+
+For support, email support@flow.example.com or open an issue in the repository.
+
+---
+
+## 🙏 Acknowledgments
+
+- OpenAI for GPT API
+- Laravel Framework
+- Model Context Protocol (MCP)
+
+---
+
+**Built with ❤️ using Laravel**

@@ -29,8 +29,7 @@ Table users {
 Table phone_verification_codes {
   id bigint [pk, increment]
   phone_number varchar(20) [not null]
-  code varchar(6) [not null, note: '6-digit OTP code']
-  purpose varchar [default: 'verification', note: 'verification, login, register']
+  code varchar(6) [not null, note: '6-digit OTP code for registration']
   expires_at timestamp [not null]
   verified_at timestamp [null]
   is_used boolean [default: false]
@@ -44,7 +43,7 @@ Table phone_verification_codes {
     (phone_number, expires_at)
   }
   
-  Note: 'OTP codes for phone number verification via OTPIQ SMS/WhatsApp service'
+  Note: 'OTP codes for phone number verification during registration via OTPIQ SMS/WhatsApp service. User must request code via /api/auth/send-verification (phone must NOT be registered), then use code during registration.'
 }
 
 Table sessions {

@@ -199,57 +199,57 @@ class OpenAIService
     /**
      * Test the OpenAI API connection with a simple request.
      */
-    public function testConnection(): array
-    {
-        $apiKey = config('openai.api_key');
+    // public function testConnection(): array
+    // {
+    //     $apiKey = config('openai.api_key');
         
-        if (empty($apiKey)) {
-            return [
-                'success' => false,
-                'error' => 'API key is not configured',
-            ];
-        }
+    //     if (empty($apiKey)) {
+    //         return [
+    //             'success' => false,
+    //             'error' => 'API key is not configured',
+    //         ];
+    //     }
 
-        if (!str_starts_with($apiKey, 'sk-')) {
-            return [
-                'success' => false,
-                'error' => 'Invalid API key format. Should start with "sk-"',
-            ];
-        }
+    //     if (!str_starts_with($apiKey, 'sk-')) {
+    //         return [
+    //             'success' => false,
+    //             'error' => 'Invalid API key format. Should start with "sk-"',
+    //         ];
+    //     }
 
-        try {
-            // Make a minimal test request
-            $response = OpenAI::chat()->create([
-                'model' => 'gpt-4o-mini',
-                'messages' => [
-                    ['role' => 'user', 'content' => 'Say "test"'],
-                ],
-                'max_tokens' => 5,
-            ]);
+    //     try {
+    //         // Make a minimal test request
+    //         $response = OpenAI::chat()->create([
+    //             'model' => 'gpt-4o-mini',
+    //             'messages' => [
+    //                 ['role' => 'user', 'content' => 'Say "test"'],
+    //             ],
+    //             'max_tokens' => 5,
+    //         ]);
 
-            if ($response && method_exists($response, 'toArray')) {
-                $data = $response->toArray();
-                if (isset($data['choices'][0]['message']['content'])) {
-                    return [
-                        'success' => true,
-                        'message' => 'API connection successful',
-                        'response' => $data['choices'][0]['message']['content'],
-                    ];
-                }
-            }
+    //         if ($response && method_exists($response, 'toArray')) {
+    //             $data = $response->toArray();
+    //             if (isset($data['choices'][0]['message']['content'])) {
+    //                 return [
+    //                     'success' => true,
+    //                     'message' => 'API connection successful',
+    //                     'response' => $data['choices'][0]['message']['content'],
+    //                 ];
+    //             }
+    //         }
 
-            return [
-                'success' => false,
-                'error' => 'Unexpected response format',
-            ];
-        } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => 'Connection failed: ' . $e->getMessage(),
-                'class' => get_class($e),
-            ];
-        }
-    }
+    //         return [
+    //             'success' => false,
+    //             'error' => 'Unexpected response format',
+    //         ];
+    //     } catch (\Exception $e) {
+    //         return [
+    //             'success' => false,
+    //             'error' => 'Connection failed: ' . $e->getMessage(),
+    //             'class' => get_class($e),
+    //         ];
+    //     }
+    // }
 
 }
 

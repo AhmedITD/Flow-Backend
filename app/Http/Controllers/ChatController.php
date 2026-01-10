@@ -3,49 +3,40 @@
 namespace App\Http\Controllers;
 
 use App\Actions\HandleChatAction;
-use App\Models\Conversation;
 use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
     /**
-     * Create a new conversation.
-     */
-    public function createConversation(Request $request)
-    {
-        $conversation = Conversation::create([
-            'tenant_id' => $request->input('tenant_id'),
-            'title' => $request->input('title', 'New Conversation'),
-            'status' => 'active',
-        ]);
-
-        return response()->json([
-            'conversation_id' => $conversation->id,
-            'title' => $conversation->title,
-            'created_at' => $conversation->created_at,
-        ]);
-    }
-
-    /**
-     * Get conversation with messages.
-     */
-    // public function getConversation(string $conversationId)
-    // {
-    //     $conversation = Conversation::with('messages')->findOrFail($conversationId);
-
-    //     return response()->json($conversation);
-    // }
-
-    /**
      * Stream chat response using SSE with MCP tool integration.
+     * Authenticated via API key (customer service access).
+     * No conversation or message history is saved.
      */
-    public function chat(Request $request, string $conversationId)
+    public function chat(Request $request)
     {
+        // Get the ApiKey model attached by AuthenticateApiKey middleware
+        $apiKeyModel = $request->attributes->get('api_key_model');
+        
+        if (!$apiKeyModel) {
+            return response()->json([
+                'error' => 'API key required',
+                'message' => 'This endpoint requires API key authentication',
+            ], 401);
+        }
+
         $userMessage = $request->input('message');
+        
+        if (!$userMessage) {
+            return response()->json([
+                'error' => 'Message required',
+                'message' => 'Please provide a message in the request',
+            ], 400);
+        }
+
         $action = new HandleChatAction();
 
-        return response()->eventStream(function () use ($action, $conversationId, $userMessage) {
-            yield from $action->execute($conversationId, $userMessage);
+        return response()->eventStream(function () use ($action, $userMessage, $apiKeyModel) {
+            yield from $action->execute($userMessage, $apiKeyModel);
         });
     }
 }

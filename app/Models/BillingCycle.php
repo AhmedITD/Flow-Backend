@@ -7,34 +7,33 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-class Payment extends Model
+class BillingCycle extends Model
 {
     use HasFactory;
 
     public $incrementing = false;
-    protected $keyType = 'uuid';
+    protected $keyType = 'string';
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'id',
-        'user_id',
         'subscription_id',
-        'transaction_id',
-        'qicard_payment_id',
+        'payment_id',
+        'period_start',
+        'period_end',
+        'status',
         'amount',
         'currency',
-        'status',
-        'description',
-        'payment_method',
-        'metadata',
-        'qicard_response',
         'paid_at',
     ];
 
     protected $casts = [
+        'period_start' => 'date',
+        'period_end' => 'date',
         'amount' => 'decimal:2',
-        'metadata' => 'array',
-        'qicard_response' => 'array',
         'paid_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -49,15 +48,7 @@ class Payment extends Model
     }
 
     /**
-     * Get the user that owns the payment.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the subscription for this payment.
+     * Get the subscription that owns this billing cycle.
      */
     public function subscription(): BelongsTo
     {
@@ -65,26 +56,18 @@ class Payment extends Model
     }
 
     /**
-     * Check if payment is completed.
+     * Get the payment for this billing cycle.
      */
-    public function isCompleted(): bool
+    public function payment(): BelongsTo
     {
-        return $this->status === 'completed';
+        return $this->belongsTo(Payment::class);
     }
 
     /**
-     * Check if payment is pending.
+     * Check if billing cycle is paid.
      */
-    public function isPending(): bool
+    public function isPaid(): bool
     {
-        return $this->status === 'pending';
-    }
-
-    /**
-     * Check if payment failed.
-     */
-    public function isFailed(): bool
-    {
-        return $this->status === 'failed';
+        return $this->status === 'paid';
     }
 }
