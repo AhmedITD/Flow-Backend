@@ -2,7 +2,7 @@
 
 namespace App\Actions\Auth;
 
-class RefreshTokenAction
+final class RefreshTokenAction
 {
     /**
      * Execute the refresh token action.

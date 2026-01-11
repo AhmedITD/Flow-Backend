@@ -6,7 +6,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\QiCardService;
 
-class GetPaymentStatusAction
+final class GetPaymentStatusAction
 {
     public function __construct(
         private QiCardService $qiCardService

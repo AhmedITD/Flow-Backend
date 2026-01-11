@@ -5,7 +5,7 @@ namespace App\Actions\Ticket;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
-class ViewTicketAction
+final class ViewTicketAction
 {
     /**
      * Get ticket details by ID.

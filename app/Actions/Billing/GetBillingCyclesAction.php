@@ -5,7 +5,7 @@ namespace App\Actions\Billing;
 use App\Models\Subscription;
 use App\Models\User;
 
-class GetBillingCyclesAction
+final class GetBillingCyclesAction
 {
     /**
      * Get billing cycles for a subscription.

@@ -2,7 +2,7 @@
 
 namespace App\Actions\Auth;
 
-class GetAuthenticatedUserAction
+final class GetAuthenticatedUserAction
 {
     /**
      * Execute the get authenticated user action.

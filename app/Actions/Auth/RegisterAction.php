@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
-class RegisterAction
+final class RegisterAction
 {
     public function __construct(
         private OtpiqService $otpiqService

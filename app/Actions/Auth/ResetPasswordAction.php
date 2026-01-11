@@ -7,7 +7,7 @@ use App\Services\OtpiqService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
-class ResetPasswordAction
+final class ResetPasswordAction
 {
     public function __construct(
         private OtpiqService $otpiqService

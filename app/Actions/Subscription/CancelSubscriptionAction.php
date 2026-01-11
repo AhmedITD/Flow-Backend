@@ -5,7 +5,7 @@ namespace App\Actions\Subscription;
 use App\Models\Subscription;
 use App\Models\User;
 
-class CancelSubscriptionAction
+final class CancelSubscriptionAction
 {
     /**
      * Cancel a subscription for a user.

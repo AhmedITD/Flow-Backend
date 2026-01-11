@@ -2,7 +2,7 @@
 
 namespace App\Actions\Auth;
 
-class LogoutAction
+final class LogoutAction
 {
     /**
      * Execute the logout action.

@@ -20,7 +20,7 @@ use Illuminate\Http\StreamedEvent;
  * - At the end of the chat, total tokens are recorded to UsageTrackingService
  * - Tokens = prompt_tokens + completion_tokens from each OpenAI response
  */
-class HandleChatAction
+final class HandleChatAction
 {
     private OpenAIService $openai;
     private UsageTrackingService $usageTracker;

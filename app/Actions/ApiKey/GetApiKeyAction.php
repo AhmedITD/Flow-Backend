@@ -5,7 +5,7 @@ namespace App\Actions\ApiKey;
 use App\Models\ApiKey;
 use App\Models\User;
 
-class GetApiKeyAction
+final class GetApiKeyAction
 {
     /**
      * Get API key details.

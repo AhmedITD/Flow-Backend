@@ -6,7 +6,7 @@ use App\Models\Subscription;
 use App\Models\User;
 use App\Services\TokenPricingService;
 
-class CalculateUsageCostAction
+final class CalculateUsageCostAction
 {
     public function __construct(
         private TokenPricingService $tokenPricingService

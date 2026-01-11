@@ -5,7 +5,7 @@ namespace App\Actions\Ticket;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\Collection;
 
-class SearchTicketsAction
+final class SearchTicketsAction
 {
     /**
      * Search tickets based on criteria.

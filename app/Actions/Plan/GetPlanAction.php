@@ -4,7 +4,7 @@ namespace App\Actions\Plan;
 
 use App\Models\Plan;
 
-class GetPlanAction
+final class GetPlanAction
 {
     /**
      * Get a specific plan by ID.

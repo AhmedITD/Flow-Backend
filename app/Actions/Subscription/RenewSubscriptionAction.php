@@ -6,7 +6,7 @@ use App\Models\BillingCycle;
 use App\Models\Subscription;
 use Carbon\Carbon;
 
-class RenewSubscriptionAction
+final class RenewSubscriptionAction
 {
     /**
      * Renew a subscription (create new billing cycle).

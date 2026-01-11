@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 
-class LoginAction
+final class LoginAction
 {
     public function __construct(
         private OtpiqService $otpiqService

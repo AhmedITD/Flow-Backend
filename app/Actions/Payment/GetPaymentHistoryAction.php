@@ -4,7 +4,7 @@ namespace App\Actions\Payment;
 
 use App\Models\User;
 
-class GetPaymentHistoryAction
+final class GetPaymentHistoryAction
 {
     /**
      * Get payment history for a user.

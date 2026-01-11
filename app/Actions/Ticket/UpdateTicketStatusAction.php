@@ -5,7 +5,7 @@ namespace App\Actions\Ticket;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
-class UpdateTicketStatusAction
+final class UpdateTicketStatusAction
 {
     /**
      * Update ticket status.

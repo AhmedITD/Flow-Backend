@@ -7,7 +7,7 @@ use App\Models\ApiKey;
 use App\Models\User;
 use Illuminate\Support\Str;
 
-class GenerateApiKeyAction
+final class GenerateApiKeyAction
 {
     /**
      * Generate a new API key for the user.

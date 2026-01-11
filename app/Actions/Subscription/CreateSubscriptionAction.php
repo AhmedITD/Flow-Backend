@@ -9,7 +9,7 @@ use App\Models\SubscriptionService;
 use App\Models\User;
 use Carbon\Carbon;
 
-class CreateSubscriptionAction
+final class CreateSubscriptionAction
 {
     /**
      * Create a new subscription for a user.

@@ -5,7 +5,7 @@ namespace App\Actions\Ticket;
 use App\Models\Ticket;
 use App\Models\User;
 
-class CreateTicketAction
+final class CreateTicketAction
 {
     /**
      * Create a new ticket.

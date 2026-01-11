@@ -4,7 +4,7 @@ namespace App\Actions\ApiKey;
 
 use App\Models\User;
 
-class ListApiKeysAction
+final class ListApiKeysAction
 {
     /**
      * List all API keys for the user.

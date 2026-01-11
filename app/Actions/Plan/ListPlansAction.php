@@ -4,7 +4,7 @@ namespace App\Actions\Plan;
 
 use App\Models\Plan;
 
-class ListPlansAction
+final class ListPlansAction
 {
     /**
      * List all available plans with optional filters.

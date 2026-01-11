@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\OtpiqService;
 use Illuminate\Support\Facades\Validator;
 
-class SendPhoneVerificationAction
+final class SendPhoneVerificationAction
 {
     public function __construct(
         private OtpiqService $otpiqService

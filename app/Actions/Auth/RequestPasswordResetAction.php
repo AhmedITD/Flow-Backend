@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\OtpiqService;
 use Illuminate\Support\Facades\Validator;
 
-class RequestPasswordResetAction
+final class RequestPasswordResetAction
 {
     public function __construct(
         private OtpiqService $otpiqService

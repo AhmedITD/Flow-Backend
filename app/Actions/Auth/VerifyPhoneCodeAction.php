@@ -6,7 +6,7 @@ use App\Models\PhoneVerificationCode;
 use App\Services\OtpiqService;
 use Illuminate\Support\Facades\Validator;
 
-class VerifyPhoneCodeAction
+final class VerifyPhoneCodeAction
 {
     public function __construct(
         private OtpiqService $otpiqService

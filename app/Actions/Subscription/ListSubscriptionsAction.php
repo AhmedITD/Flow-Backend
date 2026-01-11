@@ -4,7 +4,7 @@ namespace App\Actions\Subscription;
 
 use App\Models\User;
 
-class ListSubscriptionsAction
+final class ListSubscriptionsAction
 {
     /**
      * List all subscriptions for a user.

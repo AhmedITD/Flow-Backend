@@ -5,7 +5,7 @@ namespace App\Actions\Subscription;
 use App\Models\Subscription;
 use App\Models\User;
 
-class GetSubscriptionAction
+final class GetSubscriptionAction
 {
     /**
      * Get a specific subscription for a user.

@@ -6,7 +6,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
-class AssignTicketAction
+final class AssignTicketAction
 {
     /**
      * Assign a ticket to an agent.
