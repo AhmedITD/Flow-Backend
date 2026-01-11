@@ -11,8 +11,13 @@ use App\Actions\Auth\RequestPasswordResetAction;
 use App\Actions\Auth\ResetPasswordAction;
 use App\Actions\Auth\SendPhoneVerificationAction;
 use App\Actions\Auth\VerifyPhoneCodeAction;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\SendPhoneVerificationRequest;
+use App\Http\Requests\Auth\VerifyPhoneCodeRequest;
 use App\Services\OtpiqService;
-use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
@@ -22,7 +27,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
         $otpiqService = app(OtpiqService::class);
         $action = new LoginAction($otpiqService);
@@ -53,7 +58,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
         $otpiqService = app(OtpiqService::class);
         $action = new RegisterAction($otpiqService);
@@ -125,7 +130,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function sendPhoneVerification(Request $request)
+    public function sendPhoneVerification(SendPhoneVerificationRequest $request)
     {
         $otpiqService = app(OtpiqService::class);
         $action = new SendPhoneVerificationAction($otpiqService);
@@ -154,7 +159,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function verifyPhoneCode(Request $request)
+    public function verifyPhoneCode(VerifyPhoneCodeRequest $request)
     {
         $otpiqService = app(OtpiqService::class);
         $action = new VerifyPhoneCodeAction($otpiqService);
@@ -183,7 +188,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function forgotPassword(Request $request)
+    public function forgotPassword(ForgotPasswordRequest $request)
     {
         $otpiqService = app(OtpiqService::class);
         $action = new RequestPasswordResetAction($otpiqService);
@@ -213,7 +218,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function resetPassword(Request $request)
+    public function resetPassword(ResetPasswordRequest $request)
     {
         $otpiqService = app(OtpiqService::class);
         $action = new ResetPasswordAction($otpiqService);

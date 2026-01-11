@@ -11,7 +11,7 @@ class ListApiKeysAction
      */
     public function execute(User $user, array $filters = []): array
     {
-        $query = $user->apiKeys()->with(['subscription.plan']);
+        $query = $user->apiKeys()->with(['subscription.plan', 'apiKeyServices']);
 
         // Filter by status
         if (isset($filters['status'])) {
@@ -34,7 +34,7 @@ class ListApiKeysAction
                     'key_prefix' => $key->key_prefix,
                     'masked_key' => $key->getMaskedKey(),
                     'status' => $key->status,
-                    'scopes' => $key->scopes,
+                    'services' => $key->apiKeyServices->map(fn($service) => $service->service_type->value),
                     'last_used_at' => $key->last_used_at,
                     'expires_at' => $key->expires_at,
                     'created_at' => $key->created_at,

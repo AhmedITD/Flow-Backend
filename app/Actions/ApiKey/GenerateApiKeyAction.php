@@ -2,6 +2,7 @@
 
 namespace App\Actions\ApiKey;
 
+use App\Enums\ServiceType;
 use App\Models\ApiKey;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -30,11 +31,19 @@ class GenerateApiKeyAction
             'name' => $data['name'] ?? 'API Key ' . now()->format('Y-m-d H:i'),
             'key_hash' => $keyHash,
             'key_prefix' => $keyPrefix,
-            'scopes' => $data['scopes'] ?? ['*'], // Default to all scopes
             'status' => 'active',
             'expires_at' => isset($data['expires_at']) ? $data['expires_at'] : null,
             'metadata' => $data['metadata'] ?? [],
         ]);
+
+        // Attach services if provided, otherwise attach all services
+        if (isset($data['services']) && is_array($data['services'])) {
+            $serviceTypes = array_map(fn($service) => ServiceType::from($service), $data['services']);
+        } else {
+            // Default to all services
+            $serviceTypes = ServiceType::cases();
+        }
+        $apiKey->attachServices($serviceTypes);
 
         return [
             'success' => true,

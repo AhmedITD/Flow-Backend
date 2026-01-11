@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\HandleChatAction;
-use Illuminate\Http\Request;
+use App\Http\Requests\Chat\ChatMessageRequest;
 
 class ChatController extends Controller
 {
@@ -12,7 +12,7 @@ class ChatController extends Controller
      * Authenticated via API key (customer service access).
      * No conversation or message history is saved.
      */
-    public function chat(Request $request)
+    public function chat(ChatMessageRequest $request)
     {
         // Get the ApiKey model attached by AuthenticateApiKey middleware
         $apiKeyModel = $request->attributes->get('api_key_model');
@@ -25,14 +25,6 @@ class ChatController extends Controller
         }
 
         $userMessage = $request->input('message');
-        
-        if (!$userMessage) {
-            return response()->json([
-                'error' => 'Message required',
-                'message' => 'Please provide a message in the request',
-            ], 400);
-        }
-
         $action = new HandleChatAction();
 
         return response()->eventStream(function () use ($action, $userMessage, $apiKeyModel) {

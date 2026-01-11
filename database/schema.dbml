@@ -61,7 +61,7 @@ Table sessions {
 Table tickets {
   ticket_id uuid [pk]
   tenant_id uuid [not null]
-  channel enum [default: 'voice', note: 'voice, chat, email']
+  channel enum [default: 'chat', note: 'voice, chat']
   status enum [default: 'open', note: 'open, pending, resolved, closed']
   priority enum [default: 'medium', note: 'low, medium, high, urgent']
   category enum [default: 'general', note: 'billing, technical, shipping, account, general, other']
@@ -70,14 +70,12 @@ Table tickets {
   created_by_type varchar [default: 'system', note: 'agent or system']
   created_by_id varchar [null, note: 'agent_id or system']
   assigned_to uuid [null, ref: > users.id]
-  call_session_id uuid [null]
   created_at timestamp
   updated_at timestamp
   
   indexes {
     tenant_id
     assigned_to
-    call_session_id
     (tenant_id, status)
     (tenant_id, priority)
     (status, priority)
@@ -93,17 +91,17 @@ Table plans {
   name varchar [not null]
   slug varchar [unique, not null]
   description text [null]
-  price decimal(10,2) [not null]
+  price decimal(10,2) [not null, note: 'Subscription fee. Can be 0 for pure pay-as-you-go plans']
   currency varchar(3) [default: 'IQD']
   billing_period enum [default: 'monthly', note: 'monthly, yearly, one_time']
   trial_days integer [default: 0]
   is_active boolean [default: true]
-  features json [null]
-  limits json [null]
+  features json [null, note: 'Array of plan features']
+  limits json [null, note: 'Service limits and pricing. Format: {"service_type": {"tokens": int, "price_per_token": decimal, "price_per_1k_tokens": decimal, "pay_as_you_go": boolean}}']
   created_at timestamp
   updated_at timestamp
   
-  Note: 'Subscription plans with features and limits'
+  Note: 'Subscription plans with features, limits, and token pricing. Supports both subscription-based and pay-as-you-go pricing models. For pay-as-you-go: price=0, limits contain price_per_token or price_per_1k_tokens, pay_as_you_go=true'
 }
 
 Table subscriptions {
@@ -115,7 +113,6 @@ Table subscriptions {
   ends_at timestamp [null]
   trial_ends_at timestamp [null]
   cancelled_at timestamp [null]
-  cancel_reason varchar [null]
   auto_renew boolean [default: true]
   metadata json [null]
   created_at timestamp
@@ -133,8 +130,8 @@ Table subscription_services {
   id uuid [pk]
   subscription_id uuid [not null, ref: > subscriptions.id]
   service_type service_type [not null, note: 'Enum: call_center, hr']
-  allocated_tokens integer [default: 0, note: 'Token limit for this subscription service']
-  tokens_used integer [default: 0, note: 'Total tokens consumed']
+  allocated_tokens integer [default: 0, note: 'Token limit for this subscription service. For pay-as-you-go plans, this is typically 0']
+  tokens_used integer [default: 0, note: 'Total tokens consumed. Used to calculate usage-based payments']
   reset_at timestamp [not null]
   created_at timestamp
   updated_at timestamp
@@ -145,7 +142,7 @@ Table subscription_services {
     service_type
   }
   
-  Note: 'Service allocations per subscription with token limits and usage tracking'
+  Note: 'Service allocations per subscription with token limits and usage tracking. Token usage is tracked for both subscription limits and pay-as-you-go billing'
 }
 
 Table usage_records {
@@ -196,12 +193,12 @@ Table payments {
   subscription_id uuid [null, ref: > subscriptions.id]
   transaction_id varchar [unique, null]
   qicard_payment_id varchar [null]
-  amount decimal(10,2) [not null]
+  amount decimal(10,2) [not null, note: 'Payment amount. Can be subscription fee or usage-based charges']
   currency varchar(3) [default: 'IQD']
   status enum [default: 'pending', note: 'pending, processing, completed, failed, cancelled']
-  description text [null]
+  description text [null, note: 'Payment description. Usage payments: "Usage-based payment for token consumption"']
   payment_method varchar [null]
-  metadata json [null]
+  metadata json [null, note: 'Additional payment data. For usage payments: {"type": "usage", "services": [{"service_type": "call_center", "tokens_used": int, "cost": decimal}]}']
   qicard_response json [null]
   paid_at timestamp [null]
   created_at timestamp
@@ -214,7 +211,7 @@ Table payments {
     qicard_payment_id
   }
   
-  Note: 'Payment transactions linked to subscriptions'
+  Note: 'Payment transactions linked to subscriptions. Includes both subscription fees and usage-based (pay-as-you-go) payments. Usage payments are created via /api/subscriptions/{id}/usage-payment endpoint'
 }
 
 // Chat/Conversation System
@@ -228,12 +225,10 @@ Table api_keys {
   name varchar [not null]
   key_hash varchar [unique, not null]
   key_prefix varchar(20) [not null]
-  scopes text [null]
   status enum [default: 'active', note: 'active, revoked, expired']
   last_used_at timestamp [null]
   expires_at timestamp [null]
   revoked_at timestamp [null]
-  revoke_reason varchar [null]
   metadata json [null]
   created_at timestamp
   updated_at timestamp
@@ -245,6 +240,21 @@ Table api_keys {
   }
   
   Note: 'API keys for programmatic access'
+}
+
+Table api_key_services {
+  id uuid [pk]
+  api_key_id uuid [not null, ref: > api_keys.id]
+  service_type service_type [not null, note: 'Enum: call_center, hr']
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (api_key_id, service_type) [unique]
+    service_type
+  }
+  
+  Note: 'Many-to-many relationship between API keys and services. Each API key can have access to multiple services (call_center, hr).'
 }
 
 Table api_key_usage {

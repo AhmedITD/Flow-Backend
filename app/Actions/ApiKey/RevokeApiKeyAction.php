@@ -10,7 +10,7 @@ class RevokeApiKeyAction
     /**
      * Revoke an API key.
      */
-    public function execute(User $user, string $apiKeyId, ?string $reason = null): array
+    public function execute(User $user, string $apiKeyId): array
     {
         $apiKey = ApiKey::where('id', $apiKeyId)
             ->where('user_id', $user->id)
@@ -30,7 +30,7 @@ class RevokeApiKeyAction
             ];
         }
 
-        $apiKey->revoke($reason);
+        $apiKey->revoke();
 
         return [
             'success' => true,

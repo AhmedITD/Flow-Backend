@@ -4,6 +4,10 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ApiKeyController;
+use App\Http\Controllers\PlanController;
+use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\UsageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,7 +25,6 @@ Route::group(['prefix' => 'auth'], function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/send-verification', [AuthController::class, 'sendPhoneVerification']);
     Route::post('/verify-code', [AuthController::class, 'verifyPhoneCode']);
-    
     // Password reset endpoints
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
@@ -45,10 +48,25 @@ Route::group(['prefix' => 'auth'], function () {
 // ============================================
 // These routes are for admin dashboard access
 Route::middleware('auth:api')->group(function () {
-    // Payment management (admin dashboard)
+    // Plans (public for authenticated users)
+    Route::get('/plans', [PlanController::class, 'index']);
+    Route::get('/plans/{id}', [PlanController::class, 'show']);
+    
+    // Subscriptions
+    Route::apiResource('subscriptions', SubscriptionController::class);
+    Route::post('/subscriptions/{id}/cancel', [SubscriptionController::class, 'cancel']);
+    
+    // Payment management
     Route::post('/payments/initiate', [PaymentController::class, 'initiate']);
-    Route::get('/payments/status/{transactionId}', [PaymentController::class, 'status']);
+    Route::get('/payments/{id}', [PaymentController::class, 'status']);
     Route::get('/payments/history', [PaymentController::class, 'history']);
+    
+    // Billing cycles
+    Route::get('/subscriptions/{subscriptionId}/billing-cycles', [BillingController::class, 'cycles']);
+    
+    // Usage-based pricing (Pay-as-you-go)
+    Route::get('/subscriptions/{subscriptionId}/usage-cost', [UsageController::class, 'calculateCost']);
+    Route::post('/subscriptions/{subscriptionId}/usage-payment', [UsageController::class, 'createPayment']);
     
     // API Key management (admin generates keys for customers)
     Route::apiResource('api-keys', ApiKeyController::class);

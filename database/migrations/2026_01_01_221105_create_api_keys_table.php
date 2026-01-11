@@ -18,12 +18,10 @@ return new class extends Migration
             $table->string('name');
             $table->string('key_hash')->unique();
             $table->string('key_prefix', 20);
-            $table->text('scopes')->nullable();
             $table->enum('status', ['active', 'revoked', 'expired'])->default('active');
             $table->timestamp('last_used_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
-            $table->string('revoke_reason')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();
 

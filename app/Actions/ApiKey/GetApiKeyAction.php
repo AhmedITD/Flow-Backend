@@ -14,7 +14,7 @@ class GetApiKeyAction
     {
         $apiKey = ApiKey::where('id', $apiKeyId)
             ->where('user_id', $user->id)
-            ->with(['subscription.plan', 'usageRecords' => function ($query) {
+            ->with(['subscription.plan', 'apiKeyServices', 'usageRecords' => function ($query) {
                 $query->latest()->take(10);
             }])
             ->first();
@@ -34,11 +34,10 @@ class GetApiKeyAction
                 'key_prefix' => $apiKey->key_prefix,
                 'masked_key' => $apiKey->getMaskedKey(),
                 'status' => $apiKey->status,
-                'scopes' => $apiKey->scopes,
+                'services' => $apiKey->apiKeyServices->map(fn($service) => $service->service_type->value),
                 'last_used_at' => $apiKey->last_used_at,
                 'expires_at' => $apiKey->expires_at,
                 'revoked_at' => $apiKey->revoked_at,
-                'revoke_reason' => $apiKey->revoke_reason,
                 'created_at' => $apiKey->created_at,
                 'subscription' => $apiKey->subscription ? [
                     'id' => $apiKey->subscription->id,

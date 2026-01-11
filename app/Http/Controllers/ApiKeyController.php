@@ -6,6 +6,8 @@ use App\Actions\ApiKey\GenerateApiKeyAction;
 use App\Actions\ApiKey\GetApiKeyAction;
 use App\Actions\ApiKey\ListApiKeysAction;
 use App\Actions\ApiKey\RevokeApiKeyAction;
+use App\Http\Requests\ApiKey\RevokeApiKeyRequest;
+use App\Http\Requests\ApiKey\StoreApiKeyRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -25,15 +27,8 @@ class ApiKeyController extends Controller
     /**
      * Generate a new API key.
      */
-    public function store(Request $request)
+    public function store(StoreApiKeyRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'environment' => 'nullable|in:live,test',
-            'scopes' => 'nullable|array',
-            'expires_at' => 'nullable|date|after:now',
-        ]);
-
         $action = new GenerateApiKeyAction();
         $result = $action->execute(Auth::user(), $request->all());
 
@@ -74,14 +69,10 @@ class ApiKeyController extends Controller
     /**
      * Revoke an API key.
      */
-    public function destroy(Request $request, string $id)
+    public function destroy(RevokeApiKeyRequest $request, string $id)
     {
-        $request->validate([
-            'reason' => 'nullable|string|max:255',
-        ]);
-
         $action = new RevokeApiKeyAction();
-        $result = $action->execute(Auth::user(), $id, $request->input('reason'));
+        $result = $action->execute(Auth::user(), $id);
 
         if (!$result['success']) {
             return response()->json($result, 404);

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('tickets', function (Blueprint $table) {
             $table->uuid('ticket_id')->primary();
             $table->uuid('tenant_id')->index();
-            $table->enum('channel', ['voice', 'chat', 'email'])->default('voice');
+            $table->enum('channel', ['voice', 'chat'])->default('chat');
             $table->enum('status', ['open', 'pending', 'resolved', 'closed'])->default('open');
             $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->default('medium');
             $table->enum('category', ['billing', 'technical', 'shipping', 'account', 'general', 'other'])->default('general');
@@ -22,8 +22,7 @@ return new class extends Migration
             $table->text('summary');
             $table->string('created_by_type')->default('system'); // 'agent' or 'system'
             $table->string('created_by_id')->nullable(); // agent_id or 'system'
-            $table->uuid('assigned_to')->nullable()->index(); // agent_id or queue_id
-            $table->uuid('call_session_id')->nullable()->index();
+            $table->foreignId('assigned_to')->nullable()->index()->constrained('users')->onDelete('set null');
             $table->timestamps();
             
             $table->index(['tenant_id', 'status']);
