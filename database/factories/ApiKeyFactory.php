@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\ApiKey;
-use App\Models\Subscription;
+use App\Models\ServiceAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -19,16 +19,14 @@ class ApiKeyFactory extends Factory
         return [
             'id' => (string) Str::uuid(),
             'user_id' => User::factory(),
-            'subscription_id' => null,
+            'service_account_id' => ServiceAccount::factory(),
             'name' => fake()->randomElement(['Production', 'Development', 'Testing', 'Staging']) . ' API Key',
             'key_hash' => hash('sha256', $plainKey),
-            'key_prefix' => substr($plainKey, 0, 12),
-            'scopes' => ['chat', 'tickets'],
+            'key_prefix' => substr($plainKey, 0, 20),
             'status' => 'active',
             'last_used_at' => fake()->optional(0.7)->dateTimeBetween('-30 days', 'now'),
             'expires_at' => fake()->optional(0.3)->dateTimeBetween('now', '+1 year'),
             'revoked_at' => null,
-            'revoke_reason' => null,
             'metadata' => null,
         ];
     }
@@ -59,11 +57,11 @@ class ApiKeyFactory extends Factory
         ]);
     }
 
-    public function withSubscription(Subscription $subscription): static
+    public function withServiceAccount(ServiceAccount $account): static
     {
         return $this->state(fn (array $attributes) => [
-            'subscription_id' => $subscription->id,
-            'user_id' => $subscription->user_id,
+            'service_account_id' => $account->id,
+            'user_id' => $account->user_id,
         ]);
     }
 

@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Payment;
-use App\Models\Subscription;
+use App\Models\ServiceAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -19,13 +19,14 @@ class PaymentFactory extends Factory
         return [
             'id' => (string) Str::uuid(),
             'user_id' => User::factory(),
-            'subscription_id' => null,
+            'service_account_id' => ServiceAccount::factory(),
             'transaction_id' => 'TXN_' . strtoupper(Str::random(12)),
             'qicard_payment_id' => 'QI_' . strtoupper(Str::random(16)),
             'amount' => fake()->randomElement([9900, 29900, 99900, 199900]),
             'currency' => 'IQD',
+            'type' => 'topup',
             'status' => $status,
-            'description' => 'Subscription payment',
+            'description' => 'Balance top-up',
             'payment_method' => 'qicard',
             'metadata' => null,
             'qicard_response' => $status === 'completed' ? [
@@ -69,11 +70,11 @@ class PaymentFactory extends Factory
         ]);
     }
 
-    public function forSubscription(Subscription $subscription): static
+    public function forServiceAccount(ServiceAccount $account): static
     {
         return $this->state(fn (array $attributes) => [
-            'subscription_id' => $subscription->id,
-            'user_id' => $subscription->user_id,
+            'service_account_id' => $account->id,
+            'user_id' => $account->user_id,
         ]);
     }
 }
