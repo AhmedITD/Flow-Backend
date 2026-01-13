@@ -2,67 +2,77 @@
 
 namespace Database\Seeders;
 
-use App\Models\BillingCycle;
 use App\Models\Payment;
-use App\Models\Subscription;
+use App\Models\ServiceAccount;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class PaymentSeeder extends Seeder
 {
+    /**
+     * Seed sample payment records.
+     */
     public function run(): void
     {
-        $activeSubscriptions = Subscription::where('status', 'active')->get();
+        $this->command->info('Seeding payments...');
 
-        foreach ($activeSubscriptions as $subscription) {
-            // Create completed payment for current subscription
-            $payment = Payment::factory()
-                ->completed()
-                ->create([
-                    'user_id' => $subscription->user_id,
-                    'subscription_id' => $subscription->id,
-                    'amount' => $subscription->plan->price ?? 29900,
-                    'description' => "Subscription payment for {$subscription->plan->name}",
-                ]);
+        // Get admin user and service account (phone numbers stored without + prefix)
+        $adminUser = User::where('phone_number', '9647716418740')->first();
+        $adminAccount = $adminUser ? ServiceAccount::where('user_id', $adminUser->id)->first() : null;
 
-            // Create billing cycle
-            BillingCycle::factory()
-                ->paid()
-                ->currentMonth()
-                ->create([
-                    'subscription_id' => $subscription->id,
-                    'payment_id' => $payment->id,
-                    'amount' => $payment->amount,
-                ]);
-
-            // Create some historical payments (50% chance)
-            if (rand(0, 1)) {
-                $historicalPayment = Payment::factory()
-                    ->completed()
-                    ->create([
-                        'user_id' => $subscription->user_id,
-                        'subscription_id' => $subscription->id,
-                        'amount' => $subscription->plan->price ?? 29900,
-                        'created_at' => now()->subMonth(),
-                    ]);
-
-                BillingCycle::factory()
-                    ->paid()
-                    ->create([
-                        'subscription_id' => $subscription->id,
-                        'payment_id' => $historicalPayment->id,
-                        'amount' => $historicalPayment->amount,
-                        'period_start' => now()->subMonth()->startOfMonth(),
-                        'period_end' => now()->subMonth()->endOfMonth(),
-                        'paid_at' => now()->subMonth(),
-                    ]);
-            }
+        if (!$adminUser || !$adminAccount) {
+            $this->command->warn('  Admin user/account not found. Skipping payment seeding.');
+            return;
         }
 
-        // Create some pending/failed payments for demo
-        Payment::factory(3)->pending()->create();
-        Payment::factory(2)->failed()->create();
+        // Create sample top-up payments
+        $payments = [
+            [
+                'amount' => 50000.00,
+                'status' => 'completed',
+                'description' => 'Initial top-up',
+                'days_ago' => 30,
+            ],
+            [
+                'amount' => 25000.00,
+                'status' => 'completed',
+                'description' => 'Balance top-up',
+                'days_ago' => 15,
+            ],
+            [
+                'amount' => 25000.00,
+                'status' => 'completed',
+                'description' => 'Balance top-up',
+                'days_ago' => 5,
+            ],
+            [
+                'amount' => 10000.00,
+                'status' => 'pending',
+                'description' => 'Pending top-up',
+                'days_ago' => 0,
+            ],
+        ];
 
-        $this->command->info('Payments and billing cycles seeded successfully.');
+        foreach ($payments as $data) {
+            $createdAt = now()->subDays($data['days_ago']);
+            
+            Payment::create([
+                'user_id' => $adminUser->id,
+                'service_account_id' => $adminAccount->id,
+                'amount' => $data['amount'],
+                'currency' => 'IQD',
+                'type' => 'topup',
+                'status' => $data['status'],
+                'description' => $data['description'],
+                'paid_at' => $data['status'] === 'completed' ? $createdAt : null,
+                'metadata' => [
+                    'seeded' => true,
+                ],
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+        }
+
+        $this->command->info("  Created " . count($payments) . " payment records");
     }
 }
-

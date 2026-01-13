@@ -21,7 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 return false;
             }
         });
-        
+
+        // Register middleware aliases
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Return JSON for all API requests

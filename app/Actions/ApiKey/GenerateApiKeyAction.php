@@ -5,7 +5,6 @@ namespace App\Actions\ApiKey;
 use App\Enums\ServiceType;
 use App\Models\ApiKey;
 use App\Models\User;
-use Illuminate\Support\Str;
 
 final class GenerateApiKeyAction
 {
@@ -14,8 +13,8 @@ final class GenerateApiKeyAction
      */
     public function execute(User $user, array $data): array
     {
-        // Get user's active subscription
-        $subscription = $user->activeSubscription;
+        // Get user's service account (create if not exists)
+        $serviceAccount = $user->getOrCreateServiceAccount();
 
         // Generate API key
         $prefix = $data['environment'] ?? 'live';
@@ -27,7 +26,7 @@ final class GenerateApiKeyAction
         // Create API key record
         $apiKey = ApiKey::create([
             'user_id' => $user->id,
-            'subscription_id' => $subscription?->id,
+            'service_account_id' => $serviceAccount->id,
             'name' => $data['name'] ?? 'API Key ' . now()->format('Y-m-d H:i'),
             'key_hash' => $keyHash,
             'key_prefix' => $keyPrefix,
@@ -52,4 +51,3 @@ final class GenerateApiKeyAction
         ];
     }
 }
-

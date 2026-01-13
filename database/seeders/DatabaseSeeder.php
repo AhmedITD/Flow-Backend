@@ -19,16 +19,16 @@ class DatabaseSeeder extends Seeder
 
         // 1. Core data (no dependencies)
         $this->call([
-            PlanSeeder::class,
             UserSeeder::class,
+            PricingSeeder::class,
         ]);
 
-        // 2. Subscriptions (depends on Users, Plans)
+        // 2. Service Accounts (depends on Users)
         $this->call([
-            SubscriptionSeeder::class,
+            ServiceAccountSeeder::class,
         ]);
 
-        // 3. API Keys (depends on Users, Subscriptions)
+        // 3. API Keys (depends on Users, Service Accounts)
         $this->call([
             ApiKeySeeder::class,
         ]);
@@ -38,7 +38,7 @@ class DatabaseSeeder extends Seeder
             TicketSeeder::class,
         ]);
 
-        // 5. Usage and Payments (depends on Subscriptions)
+        // 5. Usage and Payments (depends on Service Accounts)
         $this->call([
             UsageRecordSeeder::class,
             PaymentSeeder::class,
@@ -48,11 +48,15 @@ class DatabaseSeeder extends Seeder
         $this->command->info('Database seeding completed!');
         $this->command->newLine();
         $this->command->info('Test accounts:');
-        $this->command->info('  Phone: +9647716418740 | Password: password');
-        $this->command->info('  Phone: +9647501234567 | Password: password');
+        $this->command->info('  Phone: +9647716418740 | Password: password | Balance: 100,000 IQD');
+        $this->command->info('  Phone: +9647501234567 | Password: password | Balance: 50,000 IQD');
         $this->command->newLine();
         $this->command->info('Test API Keys:');
-        $this->command->info('  Admin: flw_test_admin_key_12345678');
-        $this->command->info('  Demo:  flw_test_demo_key_87654321');
+        $this->command->info('  Admin: flw_test_admin_key_12345678 (call_center, hr)');
+        $this->command->info('  Demo:  flw_test_demo_key_87654321 (call_center)');
+        $this->command->newLine();
+        $this->command->info('Pay-as-you-go Pricing:');
+        $this->command->info('  Call Center: 50 IQD per 1000 tokens');
+        $this->command->info('  HR: 75 IQD per 1000 tokens');
     }
 }

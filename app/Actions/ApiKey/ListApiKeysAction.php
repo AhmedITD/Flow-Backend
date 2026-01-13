@@ -11,16 +11,11 @@ final class ListApiKeysAction
      */
     public function execute(User $user, array $filters = []): array
     {
-        $query = $user->apiKeys()->with(['subscription.plan', 'apiKeyServices']);
+        $query = $user->apiKeys()->with(['serviceAccount', 'apiKeyServices']);
 
         // Filter by status
         if (isset($filters['status'])) {
             $query->where('status', $filters['status']);
-        }
-
-        // Filter by subscription
-        if (isset($filters['subscription_id'])) {
-            $query->where('subscription_id', $filters['subscription_id']);
         }
 
         $apiKeys = $query->orderBy('created_at', 'desc')->get();
@@ -38,13 +33,13 @@ final class ListApiKeysAction
                     'last_used_at' => $key->last_used_at,
                     'expires_at' => $key->expires_at,
                     'created_at' => $key->created_at,
-                    'subscription' => $key->subscription ? [
-                        'id' => $key->subscription->id,
-                        'plan' => $key->subscription->plan->name ?? null,
+                    'service_account' => $key->serviceAccount ? [
+                        'id' => $key->serviceAccount->id,
+                        'balance' => (float) $key->serviceAccount->balance,
+                        'status' => $key->serviceAccount->status,
                     ] : null,
                 ];
             }),
         ];
     }
 }
-

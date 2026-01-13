@@ -19,6 +19,7 @@ final class GetPaymentStatusAction
     {
         $payment = Payment::where('id', $paymentId)
             ->where('user_id', $user->id)
+            ->with('serviceAccount')
             ->first();
         
         if (!$payment) {
@@ -42,6 +43,11 @@ final class GetPaymentStatusAction
                     'qicard_response' => $qicardData,
                     'paid_at' => $status === 'completed' ? now() : null,
                 ]);
+
+                // If completed and is a top-up, add balance
+                if ($status === 'completed' && $payment->type === 'topup' && $payment->serviceAccount) {
+                    $payment->serviceAccount->addBalance((float) $payment->amount);
+                }
             }
         }
         
@@ -49,14 +55,15 @@ final class GetPaymentStatusAction
             'success' => true,
             'payment' => [
                 'id' => $payment->id,
-                'amount' => $payment->amount,
+                'amount' => (float) $payment->amount,
                 'currency' => $payment->currency,
+                'type' => $payment->type,
                 'status' => $payment->status,
                 'description' => $payment->description,
                 'payment_method' => $payment->payment_method,
                 'paid_at' => $payment->paid_at,
                 'created_at' => $payment->created_at,
-                'subscription_id' => $payment->subscription_id,
+                'service_account_id' => $payment->service_account_id,
             ],
         ];
     }

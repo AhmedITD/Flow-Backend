@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
@@ -22,6 +25,7 @@ class User extends Authenticatable implements JWTSubject
         'phone_number',
         'password',
         'phone_verified_at',
+        'role',
     ];
 
     /**
@@ -44,6 +48,7 @@ class User extends Authenticatable implements JWTSubject
         return [
             'phone_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
         ];
     }
 
@@ -64,43 +69,77 @@ class User extends Authenticatable implements JWTSubject
      */
     public function getJWTCustomClaims()
     {
-        return [];
+        return [
+            'role' => $this->role?->value ?? 'user',
+        ];
+    }
+
+    /**
+     * Check if user is admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === UserRole::ADMIN;
+    }
+
+    /**
+     * Check if user is regular user.
+     */
+    public function isUser(): bool
+    {
+        return $this->role === UserRole::USER;
     }
 
     /**
      * Get the payments for the user.
      */
-    public function payments()
+    public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
     }
 
     /**
-     * Get the subscriptions for the user.
+     * Get the service accounts for the user.
      */
-    public function subscriptions()
+    public function serviceAccounts(): HasMany
     {
-        return $this->hasMany(Subscription::class);
+        return $this->hasMany(ServiceAccount::class);
     }
 
     /**
-     * Get the active subscription for the user.
+     * Get the primary/active service account for the user.
      */
-    public function activeSubscription()
+    public function serviceAccount(): HasOne
     {
-        return $this->hasOne(Subscription::class)
-            ->whereIn('status', ['active', 'trial'])
-            ->where(function ($query) {
-                $query->whereNull('ends_at')
-                    ->orWhere('ends_at', '>', now());
-            })
+        return $this->hasOne(ServiceAccount::class)
+            ->where('status', 'active')
             ->latest();
+    }
+
+    /**
+     * Get or create the user's service account.
+     */
+    public function getOrCreateServiceAccount(): ServiceAccount
+    {
+        $account = $this->serviceAccount;
+        
+        if (!$account) {
+            $account = ServiceAccount::create([
+                'user_id' => $this->id,
+                'status' => 'active',
+                'balance' => 0,
+                'currency' => 'IQD',
+                'credit_limit' => 0,
+            ]);
+        }
+
+        return $account;
     }
 
     /**
      * Get the API keys for the user.
      */
-    public function apiKeys()
+    public function apiKeys(): HasMany
     {
         return $this->hasMany(ApiKey::class);
     }

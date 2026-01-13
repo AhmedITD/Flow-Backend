@@ -2,54 +2,81 @@
 
 namespace Database\Seeders;
 
-use App\Enums\ServiceType;
-use App\Models\Subscription;
-use App\Models\SubscriptionService;
+use App\Models\Pricing;
+use App\Models\ServiceAccount;
 use App\Models\UsageRecord;
 use Illuminate\Database\Seeder;
 
 class UsageRecordSeeder extends Seeder
 {
+    /**
+     * Seed sample usage records.
+     */
     public function run(): void
     {
-        $subscriptions = Subscription::whereIn('status', ['active', 'trial'])->get();
+        $this->command->info('Seeding usage records...');
 
-        foreach ($subscriptions as $subscription) {
-            // Create usage records for each service type
-            foreach (ServiceType::cases() as $serviceType) {
-                // Get or create subscription service
-                $subscriptionService = SubscriptionService::where('subscription_id', $subscription->id)
-                    ->where('service_type', $serviceType)
-                    ->first();
+        // Get admin service account (phone numbers stored without + prefix)
+        $adminAccount = ServiceAccount::whereHas('user', function ($q) {
+            $q->where('phone_number', '9647716418740');
+        })->first();
 
-                if (!$subscriptionService) {
-                    continue;
-                }
-
-                // Create usage records for the past 30 days
-                $totalTokens = 0;
-                $recordCount = rand(10, 50);
-
-                for ($i = 0; $i < $recordCount; $i++) {
-                    $tokensUsed = rand(100, 1500);
-                    $totalTokens += $tokensUsed;
-
-                    UsageRecord::factory()->create([
-                        'subscription_id' => $subscription->id,
-                        'service_type' => $serviceType,
-                        'tokens_used' => $tokensUsed,
-                        'action_type' => rand(0, 1) ? 'chat' : 'chat_with_tools',
-                        'recorded_at' => now()->subDays(rand(0, 30))->subHours(rand(0, 23)),
-                    ]);
-                }
-
-                // Update subscription service with accumulated usage
-                $subscriptionService->update([
-                    'tokens_used' => min($totalTokens, $subscriptionService->allocated_tokens ?: PHP_INT_MAX),
-                ]);
-            }
+        if (!$adminAccount) {
+            $this->command->warn('  Admin service account not found. Skipping usage seeding.');
+            return;
         }
 
-        $this->command->info('Usage records seeded successfully.');
+        // Get pricing
+        $callCenterPricing = Pricing::getCurrentPricing('call_center');
+        $hrPricing = Pricing::getCurrentPricing('hr');
+
+        // Create sample usage records for the past 7 days
+        $usageData = [
+            // Day 1
+            ['service_type' => 'call_center', 'tokens' => 1500, 'action' => 'chat', 'days_ago' => 7],
+            ['service_type' => 'call_center', 'tokens' => 2200, 'action' => 'chat_with_tools', 'days_ago' => 7],
+            // Day 2
+            ['service_type' => 'call_center', 'tokens' => 800, 'action' => 'chat', 'days_ago' => 6],
+            ['service_type' => 'hr', 'tokens' => 1200, 'action' => 'chat', 'days_ago' => 6],
+            // Day 3
+            ['service_type' => 'call_center', 'tokens' => 3500, 'action' => 'chat_with_tools', 'days_ago' => 5],
+            // Day 4
+            ['service_type' => 'hr', 'tokens' => 2000, 'action' => 'chat', 'days_ago' => 4],
+            ['service_type' => 'call_center', 'tokens' => 1800, 'action' => 'chat', 'days_ago' => 4],
+            // Day 5
+            ['service_type' => 'call_center', 'tokens' => 2500, 'action' => 'chat_with_tools', 'days_ago' => 3],
+            ['service_type' => 'hr', 'tokens' => 900, 'action' => 'chat', 'days_ago' => 3],
+            // Day 6
+            ['service_type' => 'call_center', 'tokens' => 1200, 'action' => 'chat', 'days_ago' => 2],
+            // Today
+            ['service_type' => 'call_center', 'tokens' => 600, 'action' => 'chat', 'days_ago' => 0],
+        ];
+
+        $totalCost = 0;
+
+        foreach ($usageData as $data) {
+            $pricing = $data['service_type'] === 'call_center' ? $callCenterPricing : $hrPricing;
+            $cost = $pricing ? $pricing->calculateCost($data['tokens']) : 0;
+            $totalCost += $cost;
+
+            UsageRecord::create([
+                'service_account_id' => $adminAccount->id,
+                'service_type' => $data['service_type'],
+                'tokens_used' => $data['tokens'],
+                'cost' => $cost,
+                'action_type' => $data['action'],
+                'metadata' => [
+                    'seeded' => true,
+                ],
+                'recorded_at' => now()->subDays($data['days_ago'])->subHours(rand(1, 12)),
+            ]);
+        }
+
+        // Update admin account balance to reflect usage
+        $adminAccount->balance = max(0, $adminAccount->balance - $totalCost);
+        $adminAccount->save();
+
+        $this->command->info("  Created " . count($usageData) . " usage records");
+        $this->command->info("  Total usage cost: {$totalCost} IQD");
     }
 }

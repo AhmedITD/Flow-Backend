@@ -3,25 +3,19 @@
 namespace App\Models;
 
 use App\Enums\ServiceType;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
 
 class ApiKey extends Model
 {
-    use HasFactory;
-
-    public $incrementing = false;
-    protected $keyType = 'string';
-    protected $primaryKey = 'id';
+    use HasFactory, HasUuids;
 
     protected $fillable = [
-        'id',
         'user_id',
-        'subscription_id',
+        'service_account_id',
         'name',
         'key_hash',
         'key_prefix',
@@ -37,24 +31,11 @@ class ApiKey extends Model
         'expires_at' => 'datetime',
         'revoked_at' => 'datetime',
         'metadata' => 'array',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
     ];
 
     protected $hidden = [
         'key_hash',
     ];
-
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            if (empty($model->id)) {
-                $model->id = (string) Str::uuid();
-            }
-        });
-    }
 
     /**
      * Get the user that owns the API key.
@@ -65,11 +46,11 @@ class ApiKey extends Model
     }
 
     /**
-     * Get the subscription for this API key.
+     * Get the service account for this API key.
      */
-    public function subscription(): BelongsTo
+    public function serviceAccount(): BelongsTo
     {
-        return $this->belongsTo(Subscription::class);
+        return $this->belongsTo(ServiceAccount::class);
     }
 
     /**
@@ -122,7 +103,6 @@ class ApiKey extends Model
             ]);
         }
     }
-
 
     /**
      * Check if API key is active.
@@ -193,5 +173,17 @@ class ApiKey extends Model
     public function getMaskedKey(): string
     {
         return $this->key_prefix . '...' . substr($this->key_hash, -4);
+    }
+
+    /**
+     * Check if the associated service account has sufficient balance.
+     */
+    public function hasSufficientBalance(float $estimatedCost): bool
+    {
+        if (!$this->serviceAccount) {
+            return false;
+        }
+
+        return $this->serviceAccount->hasSufficientBalance($estimatedCost);
     }
 }

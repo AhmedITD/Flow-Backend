@@ -16,6 +16,10 @@ final class GetPaymentHistoryAction
         if (isset($filters['status'])) {
             $query->where('status', $filters['status']);
         }
+
+        if (isset($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
         
         $perPage = $filters['per_page'] ?? 15;
         $payments = $query->orderBy('created_at', 'desc')->paginate($perPage);
@@ -24,13 +28,14 @@ final class GetPaymentHistoryAction
             'success' => true,
             'payments' => $payments->map(fn($payment) => [
                 'id' => $payment->id,
-                'amount' => $payment->amount,
+                'amount' => (float) $payment->amount,
                 'currency' => $payment->currency,
+                'type' => $payment->type,
                 'status' => $payment->status,
                 'description' => $payment->description,
                 'paid_at' => $payment->paid_at,
                 'created_at' => $payment->created_at,
-                'subscription_id' => $payment->subscription_id,
+                'service_account_id' => $payment->service_account_id,
             ]),
             'pagination' => [
                 'current_page' => $payments->currentPage(),

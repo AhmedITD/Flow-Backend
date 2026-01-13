@@ -2,53 +2,51 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\Usage\CalculateUsageCostAction;
-use App\Actions\Usage\CreateUsagePaymentAction;
-use App\Http\Requests\Usage\CalculateUsageCostRequest;
+use App\Actions\Usage\GetUsageHistoryAction;
+use App\Actions\Usage\GetUsageSummaryAction;
+use App\Http\Requests\Usage\UsageHistoryRequest;
+use App\Http\Requests\Usage\UsageSummaryRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 
 class UsageController extends Controller
 {
     /**
-     * Calculate usage costs for a subscription.
+     * Get usage summary for the current billing period.
      */
-    public function calculateCost(CalculateUsageCostRequest $request, string $subscriptionId): JsonResponse
+    public function summary(UsageSummaryRequest $request, GetUsageSummaryAction $action): JsonResponse
     {
-        $tokenPricingService = app(\App\Services\TokenPricingService::class);
-        $action = new CalculateUsageCostAction($tokenPricingService);
-        
-        $result = $action->execute(
-            Auth::user(),
-            $subscriptionId,
-            $request->input('service_type')
-        );
-        
-        if (!$result['success']) {
-            return response()->json($result, $result['status'] ?? 404);
+        $user = auth()->user();
+        $serviceAccount = $user->serviceAccount;
+
+        if (!$serviceAccount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No service account found',
+            ], 404);
         }
-        
+
+        $result = $action->execute($serviceAccount, $request->input('period', 'month'));
+
         return response()->json($result);
     }
-    
+
     /**
-     * Create a payment for usage costs.
+     * Get detailed usage history.
      */
-    public function createPayment(CalculateUsageCostRequest $request, string $subscriptionId): JsonResponse
+    public function history(UsageHistoryRequest $request, GetUsageHistoryAction $action): JsonResponse
     {
-        $tokenPricingService = app(\App\Services\TokenPricingService::class);
-        $action = new CreateUsagePaymentAction($tokenPricingService);
-        
-        $result = $action->execute(
-            Auth::user(),
-            $subscriptionId,
-            $request->input('service_type')
-        );
-        
-        if (!$result['success']) {
-            return response()->json($result, $result['status'] ?? 400);
+        $user = auth()->user();
+        $serviceAccount = $user->serviceAccount;
+
+        if (!$serviceAccount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No service account found',
+            ], 404);
         }
-        
-        return response()->json($result, $result['status'] ?? 201);
+
+        $result = $action->execute($serviceAccount, $request->validated());
+
+        return response()->json($result);
     }
 }

@@ -16,7 +16,7 @@ class TicketFactory extends Factory
         return [
             'ticket_id' => (string) Str::uuid(),
             'tenant_id' => (string) Str::uuid(),
-            'channel' => fake()->randomElement(['voice', 'chat', 'email']),
+            'channel' => fake()->randomElement(['voice', 'chat']),
             'status' => fake()->randomElement(['open', 'pending', 'resolved', 'closed']),
             'priority' => fake()->randomElement(['low', 'medium', 'high', 'urgent']),
             'category' => fake()->randomElement(['billing', 'technical', 'shipping', 'account', 'general', 'other']),
@@ -25,7 +25,6 @@ class TicketFactory extends Factory
             'created_by_type' => fake()->randomElement(['agent', 'system']),
             'created_by_id' => null,
             'assigned_to' => null,
-            'call_session_id' => null,
         ];
     }
 

@@ -3,84 +3,84 @@
 namespace Database\Seeders;
 
 use App\Models\ApiKey;
-use App\Models\Subscription;
+use App\Models\ApiKeyService;
+use App\Models\ServiceAccount;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class ApiKeySeeder extends Seeder
 {
+    /**
+     * Seed test API keys.
+     */
     public function run(): void
     {
+        $this->command->info('Seeding API keys...');
+
+        // Get test users (phone numbers stored without + prefix)
         $adminUser = User::where('phone_number', '9647716418740')->first();
         $demoUser = User::where('phone_number', '9647501234567')->first();
 
-        // Create a known API key for testing (admin)
-        if ($adminUser) {
-            $adminSubscription = Subscription::where('user_id', $adminUser->id)
-                ->where('status', 'active')
-                ->first();
-
-            // Test API key with known value for development
-            $testKey = 'flw_test_admin_key_12345678';
-            ApiKey::updateOrCreate(
-                ['user_id' => $adminUser->id, 'name' => 'Admin Test Key'],
-                [
-                    'subscription_id' => $adminSubscription?->id,
-                    'key_hash' => hash('sha256', $testKey),
-                    'key_prefix' => substr($testKey, 0, 12),
-                    'scopes' => ['chat', 'tickets', 'admin'],
-                    'status' => 'active',
-                    'expires_at' => now()->addYear(),
-                ]
-            );
-
-            // Production-like API key
-            ApiKey::factory()
-                ->for($adminUser)
-                ->active()
-                ->create([
-                    'name' => 'Production API Key',
-                    'subscription_id' => $adminSubscription?->id,
-                ]);
+        if (!$adminUser || !$demoUser) {
+            $this->command->warn('  Test users not found. Skipping API key seeding.');
+            return;
         }
 
-        // Create API key for demo user
-        if ($demoUser) {
-            $demoSubscription = Subscription::where('user_id', $demoUser->id)->first();
+        // Get their service accounts
+        $adminAccount = ServiceAccount::where('user_id', $adminUser->id)->first();
+        $demoAccount = ServiceAccount::where('user_id', $demoUser->id)->first();
 
-            $demoKey = 'flw_test_demo_key_87654321';
-            ApiKey::updateOrCreate(
-                ['user_id' => $demoUser->id, 'name' => 'Demo Test Key'],
-                [
-                    'subscription_id' => $demoSubscription?->id,
-                    'key_hash' => hash('sha256', $demoKey),
-                    'key_prefix' => substr($demoKey, 0, 12),
-                    'scopes' => ['chat', 'tickets'],
-                    'status' => 'active',
-                    'expires_at' => now()->addMonths(3),
-                ]
-            );
+        // Admin API Key - Full access
+        $adminKey = $this->createApiKey(
+            $adminUser,
+            $adminAccount,
+            'Admin Test Key',
+            'flw_test_admin_key_12345678',
+            ['call_center', 'hr']
+        );
+        $this->command->info("  Created Admin API key: flw_test_admin_key_12345678");
+
+        // Demo API Key - Call Center only
+        $demoKey = $this->createApiKey(
+            $demoUser,
+            $demoAccount,
+            'Demo Test Key',
+            'flw_test_demo_key_87654321',
+            ['call_center']
+        );
+        $this->command->info("  Created Demo API key: flw_test_demo_key_87654321");
+    }
+
+    private function createApiKey(
+        User $user,
+        ?ServiceAccount $serviceAccount,
+        string $name,
+        string $plainKey,
+        array $services
+    ): ApiKey {
+        $apiKey = ApiKey::create([
+            'user_id' => $user->id,
+            'service_account_id' => $serviceAccount?->id,
+            'name' => $name,
+            'key_hash' => hash('sha256', $plainKey),
+            'key_prefix' => substr($plainKey, 0, 20),
+            'status' => 'active',
+            'expires_at' => null, // Never expires
+            'metadata' => [
+                'created_by' => 'seeder',
+                'environment' => 'test',
+            ],
+        ]);
+
+        // Attach services
+        foreach ($services as $service) {
+            ApiKeyService::create([
+                'api_key_id' => $apiKey->id,
+                'service_type' => $service,
+            ]);
         }
 
-        // Create API keys for other users
-        $otherUsers = User::whereNotIn('phone_number', ['9647716418740', '9647501234567'])->get();
-
-        foreach ($otherUsers as $user) {
-            $subscription = Subscription::where('user_id', $user->id)->first();
-            
-            ApiKey::factory()
-                ->for($user)
-                ->active()
-                ->create([
-                    'subscription_id' => $subscription?->id,
-                ]);
-        }
-
-        $this->command->info('API Keys seeded successfully.');
-        $this->command->info('Test API Keys for development:');
-        $this->command->info('  Admin: flw_test_admin_key_12345678');
-        $this->command->info('  Demo:  flw_test_demo_key_87654321');
+        return $apiKey;
     }
 }
-

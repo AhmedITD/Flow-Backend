@@ -5,7 +5,7 @@ namespace App\Actions;
 use App\Enums\ServiceType;
 use App\Mcp\Tools\ToolRegistry;
 use App\Models\ApiKey;
-use App\Models\Subscription;
+use App\Models\ServiceAccount;
 use App\Services\OpenAIService;
 use App\Services\UsageTrackingService;
 use Illuminate\Http\StreamedEvent;
@@ -15,9 +15,9 @@ use Illuminate\Http\StreamedEvent;
  * 
  * Authentication: Uses API key (passed from controller)
  * 
- * Token tracking:
+ * Token tracking (Pay-as-you-go):
  * - Tokens are accumulated across all OpenAI API calls in a session
- * - At the end of the chat, total tokens are recorded to UsageTrackingService
+ * - At the end of the chat, total tokens are recorded and cost is deducted
  * - Tokens = prompt_tokens + completion_tokens from each OpenAI response
  */
 final class HandleChatAction
@@ -29,8 +29,8 @@ final class HandleChatAction
     // Context from API key
     private ?ApiKey $apiKey = null;
     
-    // Usage tracking
-    private ?Subscription $subscription = null;
+    // Usage tracking (Pay-as-you-go)
+    private ?ServiceAccount $serviceAccount = null;
     private ?ServiceType $serviceType = null;
     private int $totalTokensUsed = 0;
 
@@ -55,13 +55,18 @@ final class HandleChatAction
         // 1. Initialize usage tracking from API key
         $this->initializeUsageTracking();
 
-        // 2. Check token limits before processing
-        if ($this->subscription && $this->serviceType) {
-            $limitCheck = $this->usageTracker->checkTokenLimit($this->subscription, $this->serviceType);
-            if (!$limitCheck['allowed']) {
+        // 2. Check balance before processing
+        if ($this->serviceAccount && $this->serviceType) {
+            $balanceCheck = $this->usageTracker->checkBalance(
+                $this->serviceAccount, 
+                $this->serviceType,
+                1000 // Estimated tokens for balance check
+            );
+            
+            if (!$balanceCheck['allowed']) {
                 yield new StreamedEvent(
                     event: 'error',
-                    data: 'Token limit exceeded. ' . ($limitCheck['reason'] ?? 'Please upgrade your plan or wait for the next billing cycle.')
+                    data: $balanceCheck['reason'] . '. Please top up your account.'
                 );
                 return;
             }
@@ -177,7 +182,7 @@ final class HandleChatAction
             $finalResponse = 'I processed your request but could not generate a final response.';
         }
 
-        // 8. Record total token usage (once at the end)
+        // 8. Record total token usage and deduct from balance (once at the end)
         $this->recordTotalTokenUsage($toolCallCount);
 
         // 9. Stream the response word by word
@@ -213,9 +218,9 @@ final class HandleChatAction
     /**
      * Initialize usage tracking from API key.
      * 
-     * Gets subscription from:
-     * 1. API key's direct subscription (if set)
-     * 2. Or API key owner's active subscription
+     * Gets service account from:
+     * 1. API key's direct service account (if set)
+     * 2. Or API key owner's active service account
      * 
      * Gets service type from MCP server key.
      */
@@ -225,12 +230,12 @@ final class HandleChatAction
             return;
         }
 
-        // Try to get subscription directly from API key first
-        $this->subscription = $this->apiKey->subscription;
+        // Try to get service account directly from API key first
+        $this->serviceAccount = $this->apiKey->serviceAccount;
 
-        // If no direct subscription, get from API key's owner (user)
-        if (!$this->subscription && $this->apiKey->user) {
-            $this->subscription = $this->usageTracker->getActiveSubscription($this->apiKey->user->id);
+        // If no direct service account, get from API key's owner (user)
+        if (!$this->serviceAccount && $this->apiKey->user) {
+            $this->serviceAccount = $this->usageTracker->getActiveServiceAccount($this->apiKey->user->id);
         }
 
         // Get service type from MCP server key
@@ -259,7 +264,7 @@ final class HandleChatAction
      */
     private function recordTotalTokenUsage(int $toolCallCount): void
     {
-        if (!$this->subscription || !$this->serviceType) {
+        if (!$this->serviceAccount || !$this->serviceType) {
             return;
         }
 
@@ -272,7 +277,7 @@ final class HandleChatAction
 
         try {
             $this->usageTracker->recordTokenUsage(
-                $this->subscription,
+                $this->serviceAccount,
                 $this->serviceType,
                 $this->totalTokensUsed,
                 $toolCallCount > 0 ? 'chat_with_tools' : 'chat',
@@ -284,7 +289,7 @@ final class HandleChatAction
         } catch (\Exception $e) {
             \Log::error('Failed to record token usage', [
                 'error' => $e->getMessage(),
-                'subscription_id' => $this->subscription->id,
+                'service_account_id' => $this->serviceAccount->id,
                 'service_type' => $this->serviceType->value,
                 'api_key_id' => $this->apiKey?->id,
                 'total_tokens_used' => $this->totalTokensUsed,

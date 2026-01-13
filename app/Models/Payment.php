@@ -2,26 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Str;
 
 class Payment extends Model
 {
-    use HasFactory;
-
-    public $incrementing = false;
-    protected $keyType = 'uuid';
+    use HasFactory, HasUuids;
 
     protected $fillable = [
-        'id',
         'user_id',
-        'subscription_id',
+        'service_account_id',
         'transaction_id',
         'qicard_payment_id',
         'amount',
         'currency',
+        'type',
         'status',
         'description',
         'payment_method',
@@ -37,17 +34,6 @@ class Payment extends Model
         'paid_at' => 'datetime',
     ];
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            if (empty($model->id)) {
-                $model->id = (string) Str::uuid();
-            }
-        });
-    }
-
     /**
      * Get the user that owns the payment.
      */
@@ -57,11 +43,11 @@ class Payment extends Model
     }
 
     /**
-     * Get the subscription for this payment.
+     * Get the service account for this payment.
      */
-    public function subscription(): BelongsTo
+    public function serviceAccount(): BelongsTo
     {
-        return $this->belongsTo(Subscription::class);
+        return $this->belongsTo(ServiceAccount::class);
     }
 
     /**
@@ -86,5 +72,94 @@ class Payment extends Model
     public function isFailed(): bool
     {
         return $this->status === 'failed';
+    }
+
+    /**
+     * Check if this is a top-up payment.
+     */
+    public function isTopup(): bool
+    {
+        return $this->type === 'topup';
+    }
+
+    /**
+     * Check if this is a refund.
+     */
+    public function isRefund(): bool
+    {
+        return $this->type === 'refund';
+    }
+
+    /**
+     * Complete the payment and add balance if it's a top-up.
+     */
+    public function complete(): void
+    {
+        $this->status = 'completed';
+        $this->paid_at = now();
+        $this->save();
+
+        // Add balance for top-ups
+        if ($this->isTopup() && $this->serviceAccount) {
+            $this->serviceAccount->addBalance((float) $this->amount);
+        }
+    }
+
+    /**
+     * Mark payment as failed.
+     */
+    public function fail(): void
+    {
+        $this->status = 'failed';
+        $this->save();
+    }
+
+    /**
+     * Create a top-up payment.
+     */
+    public static function createTopup(
+        User $user,
+        ServiceAccount $serviceAccount,
+        float $amount,
+        string $currency = 'IQD',
+        ?string $description = null,
+        ?array $metadata = null
+    ): self {
+        return static::create([
+            'user_id' => $user->id,
+            'service_account_id' => $serviceAccount->id,
+            'amount' => $amount,
+            'currency' => $currency,
+            'type' => 'topup',
+            'status' => 'pending',
+            'description' => $description ?? 'Account top-up',
+            'metadata' => $metadata,
+        ]);
+    }
+
+    /**
+     * Create a refund payment.
+     */
+    public static function createRefund(
+        User $user,
+        ServiceAccount $serviceAccount,
+        float $amount,
+        ?string $description = null
+    ): self {
+        $payment = static::create([
+            'user_id' => $user->id,
+            'service_account_id' => $serviceAccount->id,
+            'amount' => $amount,
+            'currency' => $serviceAccount->currency,
+            'type' => 'refund',
+            'status' => 'completed',
+            'description' => $description ?? 'Refund',
+            'paid_at' => now(),
+        ]);
+
+        // Deduct from balance for refunds
+        $serviceAccount->deductBalance($amount);
+
+        return $payment;
     }
 }

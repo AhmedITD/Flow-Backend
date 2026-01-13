@@ -27,7 +27,6 @@ class Ticket extends Model
         'created_by_type',
         'created_by_id',
         'assigned_to',
-        'call_session_id',
     ];
 
     protected $casts = [

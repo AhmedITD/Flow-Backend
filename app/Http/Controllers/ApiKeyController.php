@@ -19,7 +19,7 @@ class ApiKeyController extends Controller
     public function index(Request $request)
     {
         $action = new ListApiKeysAction();
-        $result = $action->execute(Auth::user(), $request->only(['status', 'subscription_id']));
+        $result = $action->execute(Auth::user(), $request->only(['status']));
 
         return response()->json($result);
     }

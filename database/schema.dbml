@@ -1,35 +1,75 @@
-// Flow Database Schema
+// Flow Database Schema - Pay-as-you-go Model
 // Generated for dbdiagram.io
 
 Project Flow {
   database_type: 'PostgreSQL'
-  Note: 'Flow - AI-powered Call Center Management System'
+  Note: 'Flow - AI-powered Call Center Management System with Pay-as-you-go Pricing'
 }
 
 // Enums
+Enum user_role {
+  admin [note: 'Full system access - created via seeder only']
+  user [note: 'Regular user - created via registration']
+}
+
 Enum service_type {
   call_center [note: 'Call Center service with ticket management']
   hr [note: 'HR service with employee support tools']
 }
 
+Enum service_account_status {
+  active [note: 'Account is active and can make API calls']
+  suspended [note: 'Account suspended due to negative balance']
+  closed [note: 'Account permanently closed']
+}
+
+Enum payment_type {
+  topup [note: 'Balance top-up payment']
+  refund [note: 'Refund payment']
+  adjustment [note: 'Manual balance adjustment']
+  usage [note: 'Usage-based deduction']
+}
+
+Enum payment_status {
+  pending [note: 'Payment initiated']
+  processing [note: 'Payment being processed']
+  completed [note: 'Payment successful']
+  failed [note: 'Payment failed']
+  cancelled [note: 'Payment cancelled']
+}
+
+Enum invoice_status {
+  draft [note: 'Invoice not yet sent']
+  sent [note: 'Invoice sent to customer']
+  paid [note: 'Invoice paid']
+  overdue [note: 'Invoice past due date']
+}
+
+// ============================================
 // Users and Authentication
+// ============================================
 Table users {
   id bigint [pk, increment]
   name varchar [not null]
   phone_number varchar(20) [unique, not null]
   phone_verified_at timestamp [null]
   password varchar [not null]
+  role user_role [default: 'user', note: 'User role - admin only via seeder']
   remember_token varchar [null]
   created_at timestamp
   updated_at timestamp
   
-  Note: 'User accounts for agents and system users. Phone number authentication with OTP verification via OTPIQ'
+  indexes {
+    role
+  }
+  
+  Note: 'User accounts. Admins created via seeder only, regular users via registration. Phone number authentication with OTP verification via OTPIQ'
 }
 
 Table phone_verification_codes {
   id bigint [pk, increment]
   phone_number varchar(20) [not null]
-  code varchar(6) [not null, note: '6-digit OTP code for registration']
+  code varchar(6) [not null, note: '6-digit OTP code']
   expires_at timestamp [not null]
   verified_at timestamp [null]
   is_used boolean [default: false]
@@ -43,7 +83,7 @@ Table phone_verification_codes {
     (phone_number, expires_at)
   }
   
-  Note: 'OTP codes for phone number verification during registration via OTPIQ SMS/WhatsApp service. User must request code via /api/auth/send-verification (phone must NOT be registered), then use code during registration.'
+  Note: 'OTP codes for phone verification via OTPIQ SMS/WhatsApp service'
 }
 
 Table sessions {
@@ -57,7 +97,139 @@ Table sessions {
   Note: 'User session data'
 }
 
+// ============================================
+// Pay-as-you-go: Service Accounts & Billing
+// ============================================
+Table service_accounts {
+  id uuid [pk]
+  user_id bigint [not null, ref: > users.id]
+  status service_account_status [default: 'active']
+  balance decimal(12,2) [default: 0, note: 'Prepaid credit balance']
+  currency varchar(3) [default: 'IQD']
+  credit_limit decimal(12,2) [default: 0, note: 'Postpaid allowance (0 = prepaid only)']
+  metadata json [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (user_id, status)
+  }
+  
+  Note: 'User service account - tracks balance and access for pay-as-you-go billing'
+}
+
+Table pricing {
+  id uuid [pk]
+  service_type service_type [not null]
+  price_per_1k_tokens decimal(10,4) [not null]
+  min_tokens integer [default: 1, note: 'Minimum billable tokens per request']
+  currency varchar(3) [default: 'IQD']
+  effective_from timestamp [not null]
+  effective_until timestamp [null, note: 'NULL = currently active']
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (service_type, effective_from)
+  }
+  
+  Note: 'Token pricing per service. Multiple rows allow price history and scheduling'
+}
+
+Table pricing_tiers {
+  id uuid [pk]
+  service_type service_type [not null]
+  min_tokens integer [not null, note: 'Minimum cumulative usage for this tier']
+  discount_percent decimal(5,2) [default: 0]
+  price_per_1k_tokens decimal(10,4) [null, note: 'Override price at this tier']
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (service_type, min_tokens)
+  }
+  
+  Note: 'Volume discount tiers - e.g., 10% off after 1M tokens'
+}
+
+Table usage_records {
+  id uuid [pk]
+  service_account_id uuid [not null, ref: > service_accounts.id]
+  service_type service_type [not null]
+  tokens_used integer [not null]
+  cost decimal(10,4) [not null, note: 'Cost locked at time of usage']
+  action_type varchar [null, note: 'chat, chat_with_tools, etc.']
+  resource_id varchar [null]
+  metadata json [null]
+  recorded_at timestamp [not null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (service_account_id, recorded_at)
+    recorded_at
+    service_type
+  }
+  
+  Note: 'Immutable usage log with cost locked at usage time. Used for billing and analytics'
+}
+
+Table invoices {
+  id uuid [pk]
+  service_account_id uuid [not null, ref: > service_accounts.id]
+  period_start date [not null]
+  period_end date [not null]
+  total_tokens integer [not null]
+  total_amount decimal(12,2) [not null]
+  currency varchar(3) [default: 'IQD']
+  status invoice_status [default: 'draft']
+  due_date date [null]
+  paid_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (service_account_id, status)
+    (period_start, period_end)
+  }
+  
+  Note: 'Monthly usage statements/invoices for postpaid accounts'
+}
+
+// ============================================
+// Payments
+// ============================================
+Table payments {
+  id uuid [pk]
+  user_id bigint [not null, ref: > users.id]
+  service_account_id uuid [null, ref: > service_accounts.id]
+  transaction_id varchar [unique, null]
+  qicard_payment_id varchar [null]
+  amount decimal(12,2) [not null]
+  currency varchar(3) [default: 'IQD']
+  type payment_type [default: 'topup']
+  status payment_status [default: 'pending']
+  description text [null]
+  payment_method varchar [null]
+  metadata json [null]
+  qicard_response json [null]
+  paid_at timestamp [null]
+  created_at timestamp
+  updated_at timestamp
+  
+  indexes {
+    (user_id, status)
+    service_account_id
+    transaction_id
+    qicard_payment_id
+  }
+  
+  Note: 'Payment transactions. Top-ups add to balance, refunds deduct'
+}
+
+// ============================================
 // Tickets Management
+// ============================================
 Table tickets {
   ticket_id uuid [pk]
   tenant_id uuid [not null]
@@ -85,143 +257,13 @@ Table tickets {
   Note: 'Support tickets for customer service'
 }
 
-// Subscription & Usage Tracking
-Table plans {
-  id uuid [pk]
-  name varchar [not null]
-  slug varchar [unique, not null]
-  description text [null]
-  price decimal(10,2) [not null, note: 'Subscription fee. Can be 0 for pure pay-as-you-go plans']
-  currency varchar(3) [default: 'IQD']
-  billing_period enum [default: 'monthly', note: 'monthly, yearly, one_time']
-  trial_days integer [default: 0]
-  is_active boolean [default: true]
-  features json [null, note: 'Array of plan features']
-  limits json [null, note: 'Service limits and pricing. Format: {"service_type": {"tokens": int, "price_per_token": decimal, "price_per_1k_tokens": decimal, "pay_as_you_go": boolean}}']
-  created_at timestamp
-  updated_at timestamp
-  
-  Note: 'Subscription plans with features, limits, and token pricing. Supports both subscription-based and pay-as-you-go pricing models. For pay-as-you-go: price=0, limits contain price_per_token or price_per_1k_tokens, pay_as_you_go=true'
-}
-
-Table subscriptions {
-  id uuid [pk]
-  user_id bigint [not null, ref: > users.id]
-  plan_id uuid [not null, ref: > plans.id]
-  status enum [default: 'trial', note: 'active, cancelled, expired, trial, past_due']
-  starts_at timestamp [not null]
-  ends_at timestamp [null]
-  trial_ends_at timestamp [null]
-  cancelled_at timestamp [null]
-  auto_renew boolean [default: true]
-  metadata json [null]
-  created_at timestamp
-  updated_at timestamp
-  
-  indexes {
-    (user_id, status)
-    ends_at
-  }
-  
-  Note: 'User subscriptions to plans'
-}
-
-Table subscription_services {
-  id uuid [pk]
-  subscription_id uuid [not null, ref: > subscriptions.id]
-  service_type service_type [not null, note: 'Enum: call_center, hr']
-  allocated_tokens integer [default: 0, note: 'Token limit for this subscription service. For pay-as-you-go plans, this is typically 0']
-  tokens_used integer [default: 0, note: 'Total tokens consumed. Used to calculate usage-based payments']
-  reset_at timestamp [not null]
-  created_at timestamp
-  updated_at timestamp
-  
-  indexes {
-    (subscription_id, service_type) [unique]
-    reset_at
-    service_type
-  }
-  
-  Note: 'Service allocations per subscription with token limits and usage tracking. Token usage is tracked for both subscription limits and pay-as-you-go billing'
-}
-
-Table usage_records {
-  id uuid [pk]
-  subscription_id uuid [not null, ref: > subscriptions.id]
-  service_type service_type [not null, note: 'Enum: call_center, hr']
-  tokens_used integer [not null, note: 'Tokens consumed in this request (prompt_tokens + completion_tokens from OpenAI)']
-  action_type varchar [null]
-  resource_id varchar [null]
-  metadata json [null]
-  recorded_at timestamp [not null]
-  created_at timestamp
-  updated_at timestamp
-  
-  indexes {
-    (subscription_id, service_type, recorded_at)
-    recorded_at
-    service_type
-  }
-  
-  Note: 'Append-only log of usage. tokens_used = tokens consumed per request, calculated from OpenAI API responses'
-}
-
-Table billing_cycles {
-  id uuid [pk]
-  subscription_id uuid [not null, ref: > subscriptions.id]
-  payment_id uuid [null, ref: > payments.id]
-  period_start date [not null]
-  period_end date [not null]
-  status enum [default: 'pending', note: 'pending, paid, failed, refunded']
-  amount decimal(10,2) [not null]
-  currency varchar(3) [default: 'IQD']
-  paid_at timestamp [null]
-  created_at timestamp
-  updated_at timestamp
-  
-  indexes {
-    (subscription_id, status)
-  }
-  
-  Note: 'Billing cycle tracking for recurring subscriptions'
-}
-
-// Payments
-Table payments {
-  id uuid [pk]
-  user_id bigint [not null, ref: > users.id]
-  subscription_id uuid [null, ref: > subscriptions.id]
-  transaction_id varchar [unique, null]
-  qicard_payment_id varchar [null]
-  amount decimal(10,2) [not null, note: 'Payment amount. Can be subscription fee or usage-based charges']
-  currency varchar(3) [default: 'IQD']
-  status enum [default: 'pending', note: 'pending, processing, completed, failed, cancelled']
-  description text [null, note: 'Payment description. Usage payments: "Usage-based payment for token consumption"']
-  payment_method varchar [null]
-  metadata json [null, note: 'Additional payment data. For usage payments: {"type": "usage", "services": [{"service_type": "call_center", "tokens_used": int, "cost": decimal}]}']
-  qicard_response json [null]
-  paid_at timestamp [null]
-  created_at timestamp
-  updated_at timestamp
-  
-  indexes {
-    (user_id, status)
-    subscription_id
-    transaction_id
-    qicard_payment_id
-  }
-  
-  Note: 'Payment transactions linked to subscriptions. Includes both subscription fees and usage-based (pay-as-you-go) payments. Usage payments are created via /api/subscriptions/{id}/usage-payment endpoint'
-}
-
-// Chat/Conversation System
-// Note: Conversations and messages are not persisted. The chat service is stateless.
-
+// ============================================
 // API Key Management
+// ============================================
 Table api_keys {
   id uuid [pk]
   user_id bigint [not null, ref: > users.id]
-  subscription_id uuid [null, ref: > subscriptions.id]
+  service_account_id uuid [null, ref: > service_accounts.id]
   name varchar [not null]
   key_hash varchar [unique, not null]
   key_prefix varchar(20) [not null]
@@ -235,17 +277,18 @@ Table api_keys {
   
   indexes {
     (user_id, status)
+    service_account_id
     key_prefix
     last_used_at
   }
   
-  Note: 'API keys for programmatic access'
+  Note: 'API keys for programmatic access. Linked to service account for billing'
 }
 
 Table api_key_services {
   id uuid [pk]
   api_key_id uuid [not null, ref: > api_keys.id]
-  service_type service_type [not null, note: 'Enum: call_center, hr']
+  service_type service_type [not null]
   created_at timestamp
   updated_at timestamp
   
@@ -254,7 +297,7 @@ Table api_key_services {
     service_type
   }
   
-  Note: 'Many-to-many relationship between API keys and services. Each API key can have access to multiple services (call_center, hr).'
+  Note: 'Services each API key has access to'
 }
 
 Table api_key_usage {
@@ -278,3 +321,42 @@ Table api_key_usage {
   
   Note: 'API key usage tracking for analytics'
 }
+
+// ============================================
+// Notes
+// ============================================
+// 
+// USER ROLES:
+// - admin: Full system access, can manage users, pricing, view analytics
+//          Created ONLY via database seeder, never through registration
+// - user: Regular user, can register, top-up, use API, view own data
+//         Created through normal registration flow
+// 
+// PAY-AS-YOU-GO FLOW:
+// 1. User registers → service_account created (balance = 0)
+// 2. User tops up → Payment created → balance increases
+// 3. User makes API call → usage_record created → balance decreases
+// 4. Balance hits 0 → account suspended (or use credit_limit for postpaid)
+// 
+// PRICING:
+// - Base price per 1000 tokens stored in pricing table
+// - Volume discounts in pricing_tiers (e.g., 10% off after 1M tokens)
+// - Cost is calculated and locked at time of usage
+// 
+// INVOICES:
+// - Monthly invoices generated for postpaid accounts (credit_limit > 0)
+// - Prepaid accounts (credit_limit = 0) don't need invoices
+// 
+// ADMIN ENDPOINTS:
+// - GET /api/admin/users - List all users
+// - GET /api/admin/users/{id} - View user details
+// - PUT /api/admin/users/{id} - Update user (including role)
+// - DELETE /api/admin/users/{id} - Delete user
+// - GET /api/admin/service-accounts - List all service accounts
+// - POST /api/admin/service-accounts/{id}/adjust-balance - Manual balance adjustment
+// - POST /api/admin/service-accounts/{id}/change-status - Suspend/activate accounts
+// - POST /api/admin/pricing - Create new pricing
+// - PUT /api/admin/pricing/{id} - Update pricing
+// - GET /api/admin/analytics/usage - Usage analytics
+// - GET /api/admin/analytics/revenue - Revenue analytics
+// - GET /api/admin/analytics/users - User analytics
